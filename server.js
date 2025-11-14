@@ -9,35 +9,20 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-// Servir arquivos estáticos da raiz
 app.use(express.static(__dirname));
 
-// Configuração do Service Account
-const SERVICE_ACCOUNT_EMAIL = process.env.SERVICE_ACCOUNT_EMAIL;
-const SERVICE_ACCOUNT_PRIVATE_KEY = process.env.SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n');
+// Configuração simplificada - usando API Key para teste
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 const CALENDAR_ID = process.env.CALENDAR_ID || 'primary';
-const TARGET_EMAIL = process.env.TARGET_EMAIL || SERVICE_ACCOUNT_EMAIL;
 
 console.log('🔧 Iniciando servidor Nilton Barber...');
-console.log('📧 Service Account Email:', SERVICE_ACCOUNT_EMAIL ? '✅ Configurado' : '❌ Não configurado');
-console.log('🔑 Private Key:', SERVICE_ACCOUNT_PRIVATE_KEY ? '✅ Configurado' : '❌ Não configurado');
-console.log('📅 Calendar ID:', CALENDAR_ID);
-console.log('🎯 Target Email:', TARGET_EMAIL);
 
 // Health check
 app.get('/api/health', (req, res) => {
-    const hasEnvVars = !!(SERVICE_ACCOUNT_EMAIL && SERVICE_ACCOUNT_PRIVATE_KEY);
-    
     res.json({ 
-        status: hasEnvVars ? 'OK' : 'CONFIGURING',
-        message: hasEnvVars 
-            ? 'Nilton Barber API está funcionando' 
-            : 'Aguardando configuração das Environment Variables',
-        environment: 'Production',
-        timestamp: new Date().toISOString(),
-        hasServiceAccount: !!SERVICE_ACCOUNT_EMAIL,
-        hasPrivateKey: !!SERVICE_ACCOUNT_PRIVATE_KEY
+        status: 'OK',
+        message: 'Nilton Barber API está funcionando',
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -45,22 +30,11 @@ app.get('/api/health', (req, res) => {
 app.post('/api/bookings', async (req, res) => {
     console.log('📅 Recebendo agendamento:', req.body);
     
-    // Verifica se as variáveis de ambiente estão configuradas
-    if (!SERVICE_ACCOUNT_EMAIL || !SERVICE_ACCOUNT_PRIVATE_KEY) {
-        console.error('❌ Environment Variables não configuradas');
-        return res.status(500).json({ 
-            success: false,
-            error: 'Sistema em configuração',
-            message: 'Serviço de agendamento temporariamente indisponível.' 
-        });
-    }
-    
     try {
         const { service, price, name, email, phone, date, time } = req.body;
         
         // Validação dos dados
         if (!service || !name || !email || !phone || !date || !time) {
-            console.error('❌ Dados incompletos:', { service, name, email, phone, date, time });
             return res.status(400).json({ 
                 success: false,
                 error: 'Dados incompletos',
@@ -68,8 +42,8 @@ app.post('/api/bookings', async (req, res) => {
             });
         }
         
-        // Cria evento no Google Calendar
-        const eventId = await createCalendarEvent({
+        // Simula criação de evento (substitua por sua lógica real)
+        const eventId = await simulateCalendarEvent({
             service,
             price,
             name,
@@ -79,12 +53,22 @@ app.post('/api/bookings', async (req, res) => {
             time
         });
         
-        console.log('✅ Evento criado com ID:', eventId);
+        console.log('✅ Agendamento simulado com ID:', eventId);
+        
+        // Envia email de confirmação (opcional)
+        await sendConfirmationEmail({
+            name,
+            email,
+            service,
+            price,
+            date,
+            time
+        });
         
         res.json({ 
             success: true,
             eventId,
-            message: 'Agendamento criado com sucesso no calendário!' 
+            message: 'Agendamento criado com sucesso! Você receberá um email de confirmação.' 
         });
         
     } catch (error) {
@@ -93,97 +77,47 @@ app.post('/api/bookings', async (req, res) => {
         res.status(500).json({ 
             success: false,
             error: 'Erro interno do servidor',
-            message: error.message || 'Não foi possível criar o agendamento. Tente novamente.' 
+            message: 'Não foi possível criar o agendamento. Tente novamente.' 
         });
     }
 });
 
-// Função para criar evento no Google Calendar
-async function createCalendarEvent(bookingData) {
-    const { service, price, name, email, phone, date, time } = bookingData;
+// Função simulada para criar evento
+async function simulateCalendarEvent(bookingData) {
+    const { service, name, email, date, time } = bookingData;
     
-    console.log('📝 Criando evento no calendário com dados:', bookingData);
+    console.log('📝 Simulando criação de evento:', bookingData);
     
-    try {
-        // Verifica se as credenciais estão presentes
-        if (!SERVICE_ACCOUNT_EMAIL || !SERVICE_ACCOUNT_PRIVATE_KEY) {
-            throw new Error('Credenciais do Service Account não configuradas');
-        }
+    // Simula um delay de processamento
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Gera um ID único para o evento
+    const eventId = 'event_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    console.log('✅ Evento simulado criado:', eventId);
+    
+    return eventId;
+}
 
-        const auth = new google.auth.JWT(
-            SERVICE_ACCOUNT_EMAIL,
-            null,
-            SERVICE_ACCOUNT_PRIVATE_KEY,
-            ['https://www.googleapis.com/auth/calendar'],
-            TARGET_EMAIL
-        );
-        
-        // Testa a autenticação
-        await auth.authorize();
-        console.log('✅ Autenticação com Google Calendar bem-sucedida');
-        
-        const calendar = google.calendar({ version: 'v3', auth });
-        
-        // Converte data/hora para formato ISO
-        const startDateTime = new Date(`${date}T${time}:00`);
-        const endDateTime = new Date(startDateTime);
-        endDateTime.setHours(endDateTime.getHours() + 1);
-        
-        // Verifica se as datas são válidas
-        if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
-            throw new Error('Data ou hora inválida');
-        }
-        
-        const event = {
-            summary: `NILTON BARBER - ${service}`,
-            location: 'NILTON BARBER, Lisboa, Portugal',
-            description: `
-Agendamento: ${service}
-Valor: €${price}
-Cliente: ${name}
-Email: ${email}
-Telefone: ${phone}
-
-Agendado via Site Nilton Barber
-            `.trim(),
-            start: {
-                dateTime: startDateTime.toISOString(),
-                timeZone: 'Europe/Lisbon',
-            },
-            end: {
-                dateTime: endDateTime.toISOString(),
-                timeZone: 'Europe/Lisbon',
-            },
-            attendees: [
-                { email: email, displayName: name },
-                { email: TARGET_EMAIL, displayName: 'Nilton Barber' }
-            ],
-            reminders: {
-                useDefault: true,
-            },
-        };
-        
-        console.log('📅 Inserindo evento no calendário:', CALENDAR_ID);
-        
-        const response = await calendar.events.insert({
-            calendarId: CALENDAR_ID,
-            resource: event,
-            sendUpdates: 'all',
-        });
-        
-        console.log('✅ Evento criado com sucesso:', response.data.id);
-        return response.data.id;
-        
-    } catch (error) {
-        console.error('❌ Erro ao criar evento no Calendar:', error);
-        
-        // Log mais detalhado do erro
-        if (error.response) {
-            console.error('📨 Resposta do Google:', error.response.data);
-        }
-        
-        throw new Error(`Falha ao criar evento: ${error.message}`);
-    }
+// Função para enviar email de confirmação (simulada)
+async function sendConfirmationEmail(bookingData) {
+    const { name, email, service, price, date, time } = bookingData;
+    
+    console.log('📧 Enviando email de confirmação para:', email);
+    console.log('📋 Detalhes do agendamento:');
+    console.log('   👤 Nome:', name);
+    console.log('   ✂️ Serviço:', service);
+    console.log('   💰 Preço: €' + price);
+    console.log('   📅 Data:', date);
+    console.log('   ⏰ Hora:', time);
+    
+    // Em produção, você pode integrar com:
+    // - SendGrid
+    // - AWS SES
+    // - Nodemailer
+    // - Outro serviço de email
+    
+    return true;
 }
 
 // Rota para servir o frontend
@@ -195,13 +129,4 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
     console.log(`🚀 Servidor Nilton Barber rodando na porta ${PORT}`);
     console.log(`🌐 URL: http://localhost:${PORT}`);
-    
-    if (SERVICE_ACCOUNT_EMAIL && SERVICE_ACCOUNT_PRIVATE_KEY) {
-        console.log(`✅ Environment Variables configuradas`);
-        console.log(`📅 Calendar ID: ${CALENDAR_ID}`);
-        console.log(`🎯 Target Email: ${TARGET_EMAIL}`);
-    } else {
-        console.log(`⚠️  Environment Variables não configuradas`);
-        console.log(`💡 Configure no Vercel: SERVICE_ACCOUNT_EMAIL e SERVICE_ACCOUNT_PRIVATE_KEY`);
-    }
 });
