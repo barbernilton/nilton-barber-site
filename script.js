@@ -19,6 +19,356 @@ document.addEventListener('DOMContentLoaded', function() {
     initScrollAnimations();
 });
 
+// Adicionando todas as funções que estavam faltando
+function initParticles() {
+    const canvas = document.getElementById('particles-canvas');
+    if (!canvas) {
+        console.log('Canvas de partículas não encontrado');
+        return;
+    }
+    
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    const particles = [];
+    const particleCount = 50;
+    
+    class Particle {
+        constructor() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.size = Math.random() * 2 + 1;
+            this.speedX = Math.random() * 0.5 - 0.25;
+            this.speedY = Math.random() * 0.5 - 0.25;
+            this.opacity = Math.random() * 0.5 + 0.2;
+        }
+        
+        update() {
+            this.x += this.speedX;
+            this.y += this.speedY;
+            
+            if (this.x > canvas.width) this.x = 0;
+            if (this.x < 0) this.x = canvas.width;
+            if (this.y > canvas.height) this.y = 0;
+            if (this.y < 0) this.y = canvas.height;
+        }
+        
+        draw() {
+            ctx.fillStyle = `rgba(255, 215, 0, ${this.opacity})`;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    
+    for (let i = 0; i < particleCount; i++) {
+        particles.push(new Particle());
+    }
+    
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(particle => {
+            particle.update();
+            particle.draw();
+        });
+        requestAnimationFrame(animate);
+    }
+    
+    animate();
+    
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    });
+}
+
+function initCursor() {
+    const cursorGlow = document.querySelector('.cursor-glow');
+    if (!cursorGlow) return;
+    
+    document.addEventListener('mousemove', (e) => {
+        cursorGlow.style.left = e.clientX + 'px';
+        cursorGlow.style.top = e.clientY + 'px';
+        cursorGlow.style.opacity = '0.6';
+    });
+    
+    document.addEventListener('mouseleave', () => {
+        cursorGlow.style.opacity = '0';
+    });
+}
+
+function initNavigation() {
+    const navbar = document.querySelector('.navbar');
+    const menuToggle = document.querySelector('.menu-toggle');
+    const navMenu = document.querySelector('.nav-menu');
+    const navLinks = document.querySelectorAll('.nav-menu a');
+    
+    if (!navbar || !menuToggle || !navMenu) return;
+    
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 100) {
+            navbar.classList.add('scrolled');
+        } else {
+            navbar.classList.remove('scrolled');
+        }
+    });
+    
+    menuToggle.addEventListener('click', () => {
+        navMenu.classList.toggle('active');
+    });
+    
+    navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            navMenu.classList.remove('active');
+        });
+    });
+}
+
+function initGallery() {
+    const track = document.getElementById('gallery-track');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const items = document.querySelectorAll('.gallery-item');
+    
+    if (!track || !items.length) return;
+    
+    let currentIndex = 0;
+    let itemWidth = 0;
+    let visibleItems = 0;
+    
+    function calculateDimensions() {
+        const computedStyle = window.getComputedStyle(track);
+        let gapValue = computedStyle.columnGap || computedStyle.gap || '30px';
+        const gapParts = gapValue.trim().split(/\s+/);
+        const gap = parseFloat(gapParts[0]) || 30;
+        
+        const cardWidth = items[0].offsetWidth;
+        itemWidth = cardWidth + gap;
+        const containerWidth = track.parentElement.offsetWidth;
+        visibleItems = Math.floor((containerWidth + gap) / itemWidth);
+        visibleItems = Math.min(items.length, Math.max(1, visibleItems));
+    }
+    
+    function updateCarousel() {
+        calculateDimensions();
+        const offset = -currentIndex * itemWidth;
+        track.style.transform = `translateX(${offset}px)`;
+        
+        prevBtn.disabled = currentIndex === 0;
+        nextBtn.disabled = currentIndex >= items.length - visibleItems;
+        
+        prevBtn.style.opacity = currentIndex === 0 ? '0.5' : '1';
+        nextBtn.style.opacity = currentIndex >= items.length - visibleItems ? '0.5' : '1';
+    }
+    
+    prevBtn.addEventListener('click', () => {
+        if (currentIndex > 0) {
+            currentIndex--;
+            updateCarousel();
+        }
+    });
+    
+    nextBtn.addEventListener('click', () => {
+        if (currentIndex < items.length - visibleItems) {
+            currentIndex++;
+            updateCarousel();
+        }
+    });
+    
+    let isDragging = false;
+    let startPos = 0;
+    let dragItemWidth = 0;
+    let dragStartIndex = 0;
+    let dragDelta = 0;
+    
+    function startDrag(clientX) {
+        calculateDimensions();
+        isDragging = true;
+        startPos = clientX;
+        dragStartIndex = currentIndex;
+        dragItemWidth = itemWidth;
+        dragDelta = 0;
+        track.style.cursor = 'grabbing';
+        track.style.transition = 'none';
+    }
+    
+    function moveDrag(clientX) {
+        if (!isDragging) return;
+        dragDelta = clientX - startPos;
+        const baseTranslate = -dragStartIndex * dragItemWidth;
+        let newTranslate = baseTranslate + dragDelta;
+        
+        const maxTranslate = 0;
+        const minTranslate = -(items.length - visibleItems) * dragItemWidth;
+        newTranslate = Math.max(minTranslate, Math.min(maxTranslate, newTranslate));
+        
+        track.style.transform = `translateX(${newTranslate}px)`;
+    }
+    
+    function endDrag() {
+        if (!isDragging) return;
+        isDragging = false;
+        track.style.cursor = 'grab';
+        track.style.transition = 'transform 0.5s cubic-bezier(0.65, 0, 0.35, 1)';
+        
+        const movedBy = Math.round(-dragDelta / dragItemWidth);
+        currentIndex = Math.max(0, Math.min(dragStartIndex + movedBy, items.length - visibleItems));
+        updateCarousel();
+    }
+    
+    track.addEventListener('mousedown', (e) => {
+        startDrag(e.clientX);
+    });
+    
+    track.addEventListener('mousemove', (e) => {
+        moveDrag(e.clientX);
+    });
+    
+    track.addEventListener('mouseup', endDrag);
+    track.addEventListener('mouseleave', endDrag);
+    
+    track.addEventListener('touchstart', (e) => {
+        startDrag(e.touches[0].clientX);
+    });
+    
+    track.addEventListener('touchmove', (e) => {
+        moveDrag(e.touches[0].clientX);
+    });
+    
+    track.addEventListener('touchend', endDrag);
+    
+    window.addEventListener('resize', () => {
+        calculateDimensions();
+        currentIndex = Math.min(currentIndex, items.length - visibleItems);
+        updateCarousel();
+    });
+    
+    calculateDimensions();
+    updateCarousel();
+}
+
+function initServices() {
+    const serviceBtns = document.querySelectorAll('.service-btn');
+    
+    serviceBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const service = btn.dataset.service;
+            const price = btn.dataset.price;
+            
+            bookingData.service = service;
+            bookingData.price = price;
+            
+            const agendamentoSection = document.getElementById('agendamento');
+            if (agendamentoSection) {
+                agendamentoSection.scrollIntoView({ behavior: 'smooth' });
+            }
+            
+            const serviceCards = document.querySelectorAll('.service-selection-card');
+            serviceCards.forEach(card => {
+                if (card.dataset.service === service) {
+                    card.click();
+                }
+            });
+        });
+    });
+}
+
+function initScrollAnimations() {
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -100px 0px'
+    };
+    
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, observerOptions);
+    
+    document.querySelectorAll('.service-card, .gallery-item, .section-header').forEach(el => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(30px)';
+        el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(el);
+    });
+}
+
+// Video placeholder functionality
+function initVideo() {
+    const videoPlaceholder = document.querySelector('.video-placeholder');
+    if (videoPlaceholder) {
+        videoPlaceholder.addEventListener('click', function() {
+            const video = document.getElementById('ambiente-video');
+            if (video) {
+                this.style.display = 'none';
+                video.play().catch(error => {
+                    console.error('Erro ao reproduzir vídeo:', error);
+                });
+            }
+        });
+    }
+}
+
+// Smooth scrolling for anchor links
+function initSmoothScrolling() {
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        });
+    });
+}
+
+// Loading spinner CSS
+if (!document.querySelector('style[data-loading-spinner]')) {
+    const style = document.createElement('style');
+    style.setAttribute('data-loading-spinner', 'true');
+    style.textContent = `
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Atualize a função DOMContentLoaded para incluir as novas funções
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded - initializing app');
+    initParticles();
+    initCursor();
+    initNavigation();
+    initGallery();
+    initServices();
+    initBooking();
+    initScrollAnimations();
+    initVideo();
+    initSmoothScrolling();
+});
+
+// ... (mantenha as funções confirmBooking, showSuccessMessage, showErrorMessage, resetBooking, e initBooking do código anterior)
+
 async function confirmBooking() {
     console.log('Confirming booking...');
     
@@ -173,8 +523,6 @@ function resetBooking() {
     
     console.log('✅ Formulário reiniciado');
 }
-
-// ... (mantenha todas as outras funções como initParticles, initCursor, etc. inalteradas)
 
 function initBooking() {
     const serviceCards = document.querySelectorAll('.service-selection-card');
@@ -343,4 +691,4 @@ function initBooking() {
     }
 }
 
-// ... (mantenha o resto do código inalterado)
+console.log('✅ script.js carregado com sucesso!');
