@@ -3,17 +3,48 @@
   "name": "nilton-barber",
   "builds": [
     {
-      "src": "index.html",
+      "src": "*.html",
       "use": "@vercel/static"
+    },
+    {
+      "src": "*.css",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "*.js",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/(.*).css",
       "headers": [
         {
+          "key": "Content-Type",
+          "value": "text/css"
+        },
+        {
           "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(.*).js",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/javascript"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
         }
       ]
     },
@@ -23,6 +54,15 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
         }
       ]
     }
