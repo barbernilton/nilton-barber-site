@@ -2,7 +2,6 @@ const express = require('express');
 const { google } = require('googleapis');
 const cors = require('cors');
 const path = require('path');
-require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,17 +9,21 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Servir arquivos estáticos
 app.use(express.static('.'));
 
-// Configuração do Service Account
+// Configuração do Service Account via Environment Variables
 const SERVICE_ACCOUNT_EMAIL = process.env.SERVICE_ACCOUNT_EMAIL;
 const SERVICE_ACCOUNT_PRIVATE_KEY = process.env.SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n');
 const CALENDAR_ID = process.env.CALENDAR_ID || 'primary';
+const TARGET_EMAIL = process.env.TARGET_EMAIL || SERVICE_ACCOUNT_EMAIL;
 
 // Validação das variáveis de ambiente
 if (!SERVICE_ACCOUNT_EMAIL || !SERVICE_ACCOUNT_PRIVATE_KEY) {
-    console.error('❌ Variáveis de ambiente SERVICE_ACCOUNT_EMAIL e SERVICE_ACCOUNT_PRIVATE_KEY são obrigatórias');
-    process.exit(1);
+    console.error('❌ Environment Variables SERVICE_ACCOUNT_EMAIL e SERVICE_ACCOUNT_PRIVATE_KEY são obrigatórias');
+    console.log('💡 Configure-as no painel do Vercel: Settings → Environment Variables');
+    // Não encerra o processo para permitir deploy mesmo sem variáveis
 }
 
 // Autenticação com Service Account
@@ -31,7 +34,7 @@ function getAuth() {
             null,
             SERVICE_ACCOUNT_PRIVATE_KEY,
             ['https://www.googleapis.com/auth/calendar'],
-            process.env.TARGET_EMAIL || SERVICE_ACCOUNT_EMAIL // Email do calendário de destino
+            TARGET_EMAIL
         );
         
         return auth;
@@ -44,6 +47,14 @@ function getAuth() {
 // API para criar agendamentos
 app.post('/api/bookings', async (req, res) => {
     console.log('📅 Recebendo agendamento:', req.body);
+    
+    // Verifica se as variáveis de ambiente estão configuradas
+    if (!SERVICE_ACCOUNT_EMAIL || !SERVICE_ACCOUNT_PRIVATE_KEY) {
+        return res.status(500).json({ 
+            error: 'Sistema em configuração',
+            message: 'Serviço de agendamento temporariamente indisponível. Tente novamente em alguns minutos.' 
+        });
+    }
     
     try {
         const { service, price, name, email, phone, date, time } = req.body;
@@ -68,11 +79,6 @@ app.post('/api/bookings', async (req, res) => {
         });
         
         console.log('✅ Evento criado com ID:', eventId);
-        
-        // Aqui você pode adicionar:
-        // - Envio de email de confirmação
-        // - Salvar no banco de dados
-        // - Integração com WhatsApp, etc.
         
         res.json({ 
             success: true,
@@ -101,7 +107,7 @@ async function createCalendarEvent(bookingData) {
         // Converte data/hora para formato ISO
         const startDateTime = new Date(`${date}T${time}:00`);
         const endDateTime = new Date(startDateTime);
-        endDateTime.setHours(endDateTime.getHours() + 1); // 1 hora de duração
+        endDateTime.setHours(endDateTime.getHours() + 1);
         
         const event = {
             summary: `NILTON BARBER - ${service}`,
@@ -129,18 +135,14 @@ Agendado via Site Nilton Barber
             reminders: {
                 useDefault: true,
             },
-            transparency: 'opaque', // Mostra como ocupado
-            guestsCanInviteOthers: false,
-            guestsCanModify: false,
-            guestsCanSeeOtherGuests: false,
         };
         
-        console.log('📝 Criando evento:', event);
+        console.log('📝 Criando evento no calendário...');
         
         const response = await calendar.events.insert({
             calendarId: CALENDAR_ID,
             resource: event,
-            sendUpdates: 'all', // Envia notificações para os participantes
+            sendUpdates: 'all',
         });
         
         return response.data.id;
@@ -151,55 +153,33 @@ Agendado via Site Nilton Barber
     }
 }
 
-// Rota para verificar eventos existentes (opcional)
-app.get('/api/availability/:date', async (req, res) => {
-    try {
-        const { date } = req.params;
-        const auth = getAuth();
-        const calendar = google.calendar({ version: 'v3', auth });
-        
-        const startDate = new Date(`${date}T00:00:00`);
-        const endDate = new Date(`${date}T23:59:59`);
-        
-        const response = await calendar.events.list({
-            calendarId: CALENDAR_ID,
-            timeMin: startDate.toISOString(),
-            timeMax: endDate.toISOString(),
-            singleEvents: true,
-            orderBy: 'startTime',
-        });
-        
-        const events = response.data.items || [];
-        const busySlots = events.map(event => ({
-            start: event.start.dateTime || event.start.date,
-            end: event.end.dateTime || event.end.date,
-        }));
-        
-        res.json({ busySlots });
-        
-    } catch (error) {
-        console.error('❌ Erro ao buscar disponibilidade:', error);
-        res.status(500).json({ error: 'Erro ao buscar disponibilidade' });
-    }
-});
-
 // Health check
 app.get('/api/health', (req, res) => {
+    const hasEnvVars = !!(SERVICE_ACCOUNT_EMAIL && SERVICE_ACCOUNT_PRIVATE_KEY);
+    
     res.json({ 
-        status: 'OK', 
-        message: 'Nilton Barber API está funcionando',
+        status: hasEnvVars ? 'OK' : 'CONFIGURING',
+        message: hasEnvVars 
+            ? 'Nilton Barber API está funcionando' 
+            : 'Aguardando configuração das Environment Variables',
+        environment: 'Production',
         timestamp: new Date().toISOString()
     });
 });
 
-// Servir o frontend
-app.get('/', (req, res) => {
+// Rota para servir o frontend (fallback)
+app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Iniciar servidor
 app.listen(PORT, () => {
     console.log(`🚀 Servidor Nilton Barber rodando na porta ${PORT}`);
-    console.log(`📅 Calendar ID: ${CALENDAR_ID}`);
-    console.log(`🔐 Service Account: ${SERVICE_ACCOUNT_EMAIL}`);
+    if (SERVICE_ACCOUNT_EMAIL && SERVICE_ACCOUNT_PRIVATE_KEY) {
+        console.log(`✅ Environment Variables configuradas`);
+        console.log(`📅 Calendar ID: ${CALENDAR_ID}`);
+        console.log(`🔐 Service Account: ${SERVICE_ACCOUNT_EMAIL}`);
+    } else {
+        console.log(`⚠️  Environment Variables não configuradas - Configure no Vercel`);
+    }
 });
