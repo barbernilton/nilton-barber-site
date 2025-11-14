@@ -11,17 +11,23 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// Configuração simplificada - usando API Key para teste
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+// Configuração do Service Account
+const SERVICE_ACCOUNT_EMAIL = process.env.SERVICE_ACCOUNT_EMAIL;
+const SERVICE_ACCOUNT_PRIVATE_KEY = process.env.SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n');
 const CALENDAR_ID = process.env.CALENDAR_ID || 'primary';
 
 console.log('🔧 Iniciando servidor Nilton Barber...');
 
 // Health check
 app.get('/api/health', (req, res) => {
+    const hasEnvVars = !!(SERVICE_ACCOUNT_EMAIL && SERVICE_ACCOUNT_PRIVATE_KEY);
+    
     res.json({ 
-        status: 'OK',
-        message: 'Nilton Barber API está funcionando',
+        status: hasEnvVars ? 'OK' : 'CONFIGURING',
+        message: hasEnvVars 
+            ? 'Nilton Barber API está funcionando' 
+            : 'Aguardando configuração das Environment Variables',
+        environment: 'Production',
         timestamp: new Date().toISOString()
     });
 });
@@ -29,6 +35,15 @@ app.get('/api/health', (req, res) => {
 // API para criar agendamentos
 app.post('/api/bookings', async (req, res) => {
     console.log('📅 Recebendo agendamento:', req.body);
+    
+    // Verifica se as variáveis de ambiente estão configuradas
+    if (!SERVICE_ACCOUNT_EMAIL || !SERVICE_ACCOUNT_PRIVATE_KEY) {
+        return res.status(500).json({ 
+            success: false,
+            error: 'Sistema em configuração',
+            message: 'Serviço de agendamento temporariamente indisponível.' 
+        });
+    }
     
     try {
         const { service, price, name, email, phone, date, time } = req.body;
@@ -42,8 +57,8 @@ app.post('/api/bookings', async (req, res) => {
             });
         }
         
-        // Simula criação de evento (substitua por sua lógica real)
-        const eventId = await simulateCalendarEvent({
+        // Cria evento no Google Calendar
+        const eventId = await createCalendarEvent({
             service,
             price,
             name,
@@ -53,22 +68,12 @@ app.post('/api/bookings', async (req, res) => {
             time
         });
         
-        console.log('✅ Agendamento simulado com ID:', eventId);
-        
-        // Envia email de confirmação (opcional)
-        await sendConfirmationEmail({
-            name,
-            email,
-            service,
-            price,
-            date,
-            time
-        });
+        console.log('✅ Evento criado com ID:', eventId);
         
         res.json({ 
             success: true,
             eventId,
-            message: 'Agendamento criado com sucesso! Você receberá um email de confirmação.' 
+            message: 'Agendamento criado com sucesso no calendário!' 
         });
         
     } catch (error) {
@@ -77,47 +82,73 @@ app.post('/api/bookings', async (req, res) => {
         res.status(500).json({ 
             success: false,
             error: 'Erro interno do servidor',
-            message: 'Não foi possível criar o agendamento. Tente novamente.' 
+            message: error.message || 'Não foi possível criar o agendamento. Tente novamente.' 
         });
     }
 });
 
-// Função simulada para criar evento
-async function simulateCalendarEvent(bookingData) {
-    const { service, name, email, date, time } = bookingData;
+// Função para criar evento no Google Calendar
+async function createCalendarEvent(bookingData) {
+    const { service, price, name, email, phone, date, time } = bookingData;
     
-    console.log('📝 Simulando criação de evento:', bookingData);
-    
-    // Simula um delay de processamento
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Gera um ID único para o evento
-    const eventId = 'event_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    
-    console.log('✅ Evento simulado criado:', eventId);
-    
-    return eventId;
-}
+    try {
+        const auth = new google.auth.JWT(
+            SERVICE_ACCOUNT_EMAIL,
+            null,
+            SERVICE_ACCOUNT_PRIVATE_KEY,
+            ['https://www.googleapis.com/auth/calendar'],
+            SERVICE_ACCOUNT_EMAIL  // Usar o próprio email do service account
+        );
+        
+        const calendar = google.calendar({ version: 'v3', auth });
+        
+        // Converte data/hora para formato ISO
+        const startDateTime = new Date(`${date}T${time}:00`);
+        const endDateTime = new Date(startDateTime);
+        endDateTime.setHours(endDateTime.getHours() + 1);
+        
+        const event = {
+            summary: `NILTON BARBER - ${service}`,
+            location: 'NILTON BARBER, Lisboa, Portugal',
+            description: `
+Agendamento: ${service}
+Valor: €${price}
+Cliente: ${name}
+Email: ${email}
+Telefone: ${phone}
 
-// Função para enviar email de confirmação (simulada)
-async function sendConfirmationEmail(bookingData) {
-    const { name, email, service, price, date, time } = bookingData;
-    
-    console.log('📧 Enviando email de confirmação para:', email);
-    console.log('📋 Detalhes do agendamento:');
-    console.log('   👤 Nome:', name);
-    console.log('   ✂️ Serviço:', service);
-    console.log('   💰 Preço: €' + price);
-    console.log('   📅 Data:', date);
-    console.log('   ⏰ Hora:', time);
-    
-    // Em produção, você pode integrar com:
-    // - SendGrid
-    // - AWS SES
-    // - Nodemailer
-    // - Outro serviço de email
-    
-    return true;
+Agendado via Site Nilton Barber
+            `.trim(),
+            start: {
+                dateTime: startDateTime.toISOString(),
+                timeZone: 'Europe/Lisbon',
+            },
+            end: {
+                dateTime: endDateTime.toISOString(),
+                timeZone: 'Europe/Lisbon',
+            },
+            attendees: [
+                { email: email, displayName: name }
+            ],
+            reminders: {
+                useDefault: true,
+            },
+        };
+        
+        console.log('📝 Criando evento no calendário...');
+        
+        const response = await calendar.events.insert({
+            calendarId: CALENDAR_ID,
+            resource: event,
+            sendUpdates: 'none', // Mude para 'all' se quiser enviar notificações
+        });
+        
+        return response.data.id;
+        
+    } catch (error) {
+        console.error('❌ Erro ao criar evento no Calendar:', error);
+        throw new Error(`Falha ao criar evento: ${error.message}`);
+    }
 }
 
 // Rota para servir o frontend
@@ -128,5 +159,4 @@ app.get('*', (req, res) => {
 // Iniciar servidor
 app.listen(PORT, () => {
     console.log(`🚀 Servidor Nilton Barber rodando na porta ${PORT}`);
-    console.log(`🌐 URL: http://localhost:${PORT}`);
 });
