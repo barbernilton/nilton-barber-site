@@ -10,8 +10,8 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Servir arquivos estáticos
-app.use(express.static('.'));
+// Servir arquivos estáticos da raiz
+app.use(express.static(__dirname));
 
 // Configuração do Service Account
 const SERVICE_ACCOUNT_EMAIL = process.env.SERVICE_ACCOUNT_EMAIL;
@@ -20,8 +20,12 @@ const CALENDAR_ID = process.env.CALENDAR_ID || 'primary';
 const TARGET_EMAIL = process.env.TARGET_EMAIL || SERVICE_ACCOUNT_EMAIL;
 
 console.log('🔧 Iniciando servidor Nilton Barber...');
+console.log('📧 Service Account Email:', SERVICE_ACCOUNT_EMAIL ? '✅ Configurado' : '❌ Não configurado');
+console.log('🔑 Private Key:', SERVICE_ACCOUNT_PRIVATE_KEY ? '✅ Configurado' : '❌ Não configurado');
+console.log('📅 Calendar ID:', CALENDAR_ID);
+console.log('🎯 Target Email:', TARGET_EMAIL);
 
-// Health check - DEVE ser a primeira rota
+// Health check
 app.get('/api/health', (req, res) => {
     const hasEnvVars = !!(SERVICE_ACCOUNT_EMAIL && SERVICE_ACCOUNT_PRIVATE_KEY);
     
@@ -31,7 +35,9 @@ app.get('/api/health', (req, res) => {
             ? 'Nilton Barber API está funcionando' 
             : 'Aguardando configuração das Environment Variables',
         environment: 'Production',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        hasServiceAccount: !!SERVICE_ACCOUNT_EMAIL,
+        hasPrivateKey: !!SERVICE_ACCOUNT_PRIVATE_KEY
     });
 });
 
@@ -41,6 +47,7 @@ app.post('/api/bookings', async (req, res) => {
     
     // Verifica se as variáveis de ambiente estão configuradas
     if (!SERVICE_ACCOUNT_EMAIL || !SERVICE_ACCOUNT_PRIVATE_KEY) {
+        console.error('❌ Environment Variables não configuradas');
         return res.status(500).json({ 
             success: false,
             error: 'Sistema em configuração',
@@ -53,6 +60,7 @@ app.post('/api/bookings', async (req, res) => {
         
         // Validação dos dados
         if (!service || !name || !email || !phone || !date || !time) {
+            console.error('❌ Dados incompletos:', { service, name, email, phone, date, time });
             return res.status(400).json({ 
                 success: false,
                 error: 'Dados incompletos',
@@ -85,7 +93,7 @@ app.post('/api/bookings', async (req, res) => {
         res.status(500).json({ 
             success: false,
             error: 'Erro interno do servidor',
-            message: 'Não foi possível criar o agendamento. Tente novamente.' 
+            message: error.message || 'Não foi possível criar o agendamento. Tente novamente.' 
         });
     }
 });
@@ -94,7 +102,14 @@ app.post('/api/bookings', async (req, res) => {
 async function createCalendarEvent(bookingData) {
     const { service, price, name, email, phone, date, time } = bookingData;
     
+    console.log('📝 Criando evento no calendário com dados:', bookingData);
+    
     try {
+        // Verifica se as credenciais estão presentes
+        if (!SERVICE_ACCOUNT_EMAIL || !SERVICE_ACCOUNT_PRIVATE_KEY) {
+            throw new Error('Credenciais do Service Account não configuradas');
+        }
+
         const auth = new google.auth.JWT(
             SERVICE_ACCOUNT_EMAIL,
             null,
@@ -103,12 +118,21 @@ async function createCalendarEvent(bookingData) {
             TARGET_EMAIL
         );
         
+        // Testa a autenticação
+        await auth.authorize();
+        console.log('✅ Autenticação com Google Calendar bem-sucedida');
+        
         const calendar = google.calendar({ version: 'v3', auth });
         
         // Converte data/hora para formato ISO
         const startDateTime = new Date(`${date}T${time}:00`);
         const endDateTime = new Date(startDateTime);
         endDateTime.setHours(endDateTime.getHours() + 1);
+        
+        // Verifica se as datas são válidas
+        if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+            throw new Error('Data ou hora inválida');
+        }
         
         const event = {
             summary: `NILTON BARBER - ${service}`,
@@ -131,14 +155,15 @@ Agendado via Site Nilton Barber
                 timeZone: 'Europe/Lisbon',
             },
             attendees: [
-                { email: email, displayName: name }
+                { email: email, displayName: name },
+                { email: TARGET_EMAIL, displayName: 'Nilton Barber' }
             ],
             reminders: {
                 useDefault: true,
             },
         };
         
-        console.log('📝 Criando evento no calendário...');
+        console.log('📅 Inserindo evento no calendário:', CALENDAR_ID);
         
         const response = await calendar.events.insert({
             calendarId: CALENDAR_ID,
@@ -146,15 +171,22 @@ Agendado via Site Nilton Barber
             sendUpdates: 'all',
         });
         
+        console.log('✅ Evento criado com sucesso:', response.data.id);
         return response.data.id;
         
     } catch (error) {
         console.error('❌ Erro ao criar evento no Calendar:', error);
+        
+        // Log mais detalhado do erro
+        if (error.response) {
+            console.error('📨 Resposta do Google:', error.response.data);
+        }
+        
         throw new Error(`Falha ao criar evento: ${error.message}`);
     }
 }
 
-// Rota para servir o frontend (SEMPRE a última rota)
+// Rota para servir o frontend
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -167,6 +199,7 @@ app.listen(PORT, () => {
     if (SERVICE_ACCOUNT_EMAIL && SERVICE_ACCOUNT_PRIVATE_KEY) {
         console.log(`✅ Environment Variables configuradas`);
         console.log(`📅 Calendar ID: ${CALENDAR_ID}`);
+        console.log(`🎯 Target Email: ${TARGET_EMAIL}`);
     } else {
         console.log(`⚠️  Environment Variables não configuradas`);
         console.log(`💡 Configure no Vercel: SERVICE_ACCOUNT_EMAIL e SERVICE_ACCOUNT_PRIVATE_KEY`);
