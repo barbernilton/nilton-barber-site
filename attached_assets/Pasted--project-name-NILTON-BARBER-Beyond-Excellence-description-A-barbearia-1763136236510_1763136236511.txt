@@ -1,0 +1,277 @@
+{
+  "project": {
+    "name": "NILTON BARBER - Beyond Excellence",
+    "description": "A barbearia premium - onde tradição e modernidade se encontram para criar a experiência definitiva em cuidados masculinos",
+    "version": "ULTRA 2024",
+    "tagline": "Onde Cada Corte é Uma Assinatura"
+  },
+
+  "design": {
+    "color_palette": {
+      "primary": "#000000",
+      "secondary": "#FFD700",
+      "accent": "#FFFFFF",
+      "neutral": "#1A1A1A",
+      "special_effects": {
+        "gold_gradient": "linear-gradient(45deg, #FFD700, #FFED4E, #B8860B)",
+        "metallic_reflection": "animated-light-reflection",
+        "liquid_metal": "animated-mercury-effect"
+      }
+    },
+    "typography": {
+      "primary_font": "'Playfair Display', serif",
+      "secondary_font": "'Montserrat', sans-serif",
+      "accent_font": "'Cormorant Garamond', serif"
+    },
+    "animations": {
+      "hero_entrance": "particle-system-animation",
+      "page_transitions": "smooth-morphing",
+      "hover_effects": "magnetic-interaction",
+      "scroll_animations": "advanced-parallax",
+      "loading_animation": "gold-weave-animation",
+      "micro_interactions": "smooth-transitions"
+    },
+    "special_features": {
+      "cursor_effects": "golden-trail-effect",
+      "background_effects": "dynamic-particles",
+      "sound_design": "spatial-audio-3d"
+    }
+  },
+
+  "architecture": {
+    "technology_stack": {
+      "frontend": "HTML5, CSS3, JavaScript (Vanilla)",
+      "deployment": "Vercel",
+      "structure": "single-folder-all-files"
+    },
+    "pages": {
+      "home": {
+        "name": "A Casa do Corte Perfeito",
+        "sections": {
+          "hero": {
+            "type": "full-immersion-experience",
+            "background": "nilton-logo-as-background-with-overlay",
+            "content": {
+              "main_headline": "NILTON BARBER",
+              "subheadline": "A Arte do Corte Masculino",
+              "dynamic_text": "Onde a tradição encontra a excelência",
+              "cta_button": "AGENDAR HORÁRIO"
+            },
+            "effects": "typing-animation-with-gold-sparks",
+            "visual_specials": "floating-gold-particles, light-streaks, subtle-shine-effects"
+          },
+
+          "cinematic_experience": {
+            "title": "Nosso Ambiente",
+            "layout": "cinema-scope-ultrawide",
+            "video_source": "nilton-barbearia-4k.mp4",
+            "features": {
+              "quality": "4K High Quality",
+              "technology": "advanced-video-player",
+              "sound_design": "spatial-audio",
+              "interactivity": "playback-controls"
+            }
+          },
+
+          "masterpiece_gallery": {
+            "title": "Nossos Trabalhos",
+            "layout": "infinite-carousel",
+            "images": [
+              "corte-classico-1.jpg",
+              "barba-premium-2.jpg", 
+              "degrade-perfeito-3.jpg",
+              "corte-executivo-4.jpg",
+              "navalhado-5.jpg",
+              "estilo-master-6.jpg"
+            ],
+            "features": {
+              "interaction": "magnetic-scroll-physics",
+              "transition": "smooth-slide-effect",
+              "details": "zoom-on-hover"
+            }
+          },
+
+          "services_universe": {
+            "title": "Nossos Serviços",
+            "layout": "card-grid-3d",
+            "items": [
+              {
+                "name": "Corte de Cabelo",
+                "price": "€45",
+                "duration": "50 min",
+                "icon": "scissors-icon",
+                "features": ["Análise do formato do rosto", "Consulta de estilo", "Técnicas precisas"],
+                "animation": "card-rotation"
+              },
+              {
+                "name": "Barba e Bigode",
+                "price": "€30",
+                "duration": "40 min", 
+                "icon": "razor-icon",
+                "features": ["Acabamento navalha", "Hidratação", "Produtos premium"],
+                "animation": "card-elevation"
+              },
+              {
+                "name": "Pacote Completo",
+                "price": "€70",
+                "duration": "90 min",
+                "icon": "crown-icon",
+                "features": ["Corte + Barba", "Relaxamento", "Produtos exclusivos"],
+                "animation": "gold-glow"
+              }
+            ]
+          },
+
+      "booking": {
+        "name": "Agende Seu Horário",
+        "layout": "modern-interface",
+        "google_calendar_integration": {
+          "enabled": true,
+          "technology": "google-calendar-api",
+          "implementation": "simple-oauth-flow",
+          "user_instructions": {
+            "step_1": "Clique em 'Conectar Google Agenda'",
+            "step_2": "Faça login em sua conta Google",
+            "step_3": "Permita acesso à sua agenda",
+            "step_4": "Seus compromissos serão sincronizados automaticamente"
+          },
+          "features": {
+            "conflict_detection": "verificação-automática-de-conflitos",
+            "optimal_timing": "sugestões-inteligentes-de-horários"
+          }
+        },
+        "booking_experience": {
+          "interface": "modern-step-form",
+          "interactions": "smooth-transitions",
+          "animations": "step-progress-indicator",
+          "form_steps": {
+            "step_1": {
+              "title": "Escolha Seu Serviço",
+              "type": "visual-selection-grid",
+              "layout": "cards-with-images-and-prices",
+              "options": [
+                {
+                  "name": "Corte de Cabelo",
+                  "price": "€45",
+                  "image": "corte-cabelo-card.jpg",
+                  "description": "Corte personalizado com técnicas modernas"
+                },
+                {
+                  "name": "Barba e Bigode", 
+                  "price": "€30",
+                  "image": "barba-card.jpg",
+                  "description": "Acabamento perfeito com navalha"
+                },
+                {
+                  "name": "Pacote Completo",
+                  "price": "€70", 
+                  "image": "completo-card.jpg",
+                  "description": "Experiência completa de cuidados"
+                }
+              ]
+            },
+            "step_2": {
+              "title": "Seus Dados",
+              "fields": {
+                "nome": {"type": "text", "required": true},
+                "email": {"type": "email", "required": true},
+                "telefone": {"type": "tel", "required": true}
+              }
+            },
+            "step_3": {
+              "title": "Data e Horário",
+              "type": "calendar-time-selector",
+              "features": "google-calendar-integration"
+            },
+            "step_4": {
+              "title": "Confirmação",
+              "type": "revisao-e-confirmacao"
+            }
+          },
+          "confirmation": {
+            "effect": "success-animation",
+            "digital_ticket": "confirmacao-de-agendamento",
+            "calendar_invite": "evento-google-calendar"
+          }
+        }
+      }
+    }
+  },
+
+  "content": {
+    "branding": {
+      "business_name": "NILTON BARBER",
+      "slogan": "Excelência em Cada Detalhe",
+      "logo": "nilton-logo.png",
+      "identity": "premium-brand-system"
+    },
+    "media": {
+      "images": "high-quality-photography",
+      "videos": "professional-cinematography"
+    }
+  },
+
+  "technology": {
+    "frontend": {
+      "framework": "vanilla-js-html-css",
+      "animations": "css3-keyframes-gsap",
+      "graphics": "css-filters-transforms"
+    },
+    "backend_integrations": {
+      "google_calendar": "oauth2-rest-api",
+      "payment": "stripe-integration"
+    },
+    "performance": {
+      "loading_time": "optimized-assets",
+      "optimization": "efficient-code-splitting",
+      "caching": "service-worker-implementation"
+    }
+  },
+
+  "file_structure": {
+    "root_folder": "nilton-barber-website",
+    "files": [
+      "index.html",
+      "styles.css", 
+      "script.js",
+      "assets/",
+      "assets/images/",
+      "assets/images/logo.png",
+      "assets/images/hero-background.jpg",
+      "assets/images/servicos/",
+      "assets/images/equipa/",
+      "assets/images/trabalhos/",
+      "assets/videos/",
+      "assets/icons/",
+      "vercel.json"
+    ]
+  },
+
+  "deployment": {
+    "platform": "Vercel",
+    "configuration": {
+      "build_command": "",
+      "output_directory": ".",
+      "environment_variables": {
+        "GOOGLE_CALENDAR_CLIENT_ID": "your_google_client_id",
+        "GOOGLE_CALENDAR_API_KEY": "your_google_api_key"
+      }
+    }
+  },
+
+  "validation": {
+    "quality_metrics": [
+      "performance-benchmark",
+      "design-consistency-validation",
+      "google-calendar-integration-test",
+      "user-experience-optimization",
+      "cross-browser-compatibility",
+      "mobile-responsive-testing"
+    ],
+    "testing_protocol": {
+      "devices": "multi-device-testing",
+      "browsers": "chrome-firefox-safari-edge",
+      "user_experience": "usability-testing-focus-groups"
+    }
+  }
+}
