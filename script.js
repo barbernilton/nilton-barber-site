@@ -1,7 +1,7 @@
 const CLIENT_ID = '170593652956-9v8ngp0kkhhvo5bn0b7fratc9urcrhoh.apps.googleusercontent.com';
 const API_KEY = 'AIzaSyCVB8b81cLglC9mokEpQbXvcpzrGESWKXo';
 const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
-const SCOPES = 'https://www.googleapis.com/auth/calendar';
+const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
 
 let tokenClient;
 let gapiInited = false;
@@ -18,7 +18,8 @@ const bookingData = {
     time: ''
 };
 
-window.addEventListener('DOMContentLoaded', () => {
+// Função para inicializar quando DOM estiver pronto
+document.addEventListener('DOMContentLoaded', function() {
     initParticles();
     initCursor();
     initNavigation();
@@ -27,12 +28,260 @@ window.addEventListener('DOMContentLoaded', () => {
     initBooking();
     initScrollAnimations();
     
-    gapiLoaded();
-    gisLoaded();
+    // Carrega as bibliotecas do Google API
+    loadGAPI();
 });
+
+// Carrega Google API de forma mais controlada
+function loadGAPI() {
+    const script = document.createElement('script');
+    script.src = 'https://apis.google.com/js/api.js';
+    script.onload = function() {
+        gapiLoaded();
+    };
+    script.onerror = function() {
+        console.error('Failed to load Google API');
+    };
+    document.head.appendChild(script);
+
+    const gsiScript = document.createElement('script');
+    gsiScript.src = 'https://accounts.google.com/gsi/client';
+    gsiScript.onload = function() {
+        gisLoaded();
+    };
+    gsiScript.onerror = function() {
+        console.error('Failed to load Google Identity Services');
+    };
+    document.head.appendChild(gsiScript);
+}
+
+function gapiLoaded() {
+    if (typeof gapi !== 'undefined') {
+        gapi.load('client', initializeGapiClient);
+    } else {
+        console.error('gapi is not defined');
+    }
+}
+
+async function initializeGapiClient() {
+    try {
+        await gapi.client.init({
+            apiKey: API_KEY,
+            discoveryDocs: [DISCOVERY_DOC],
+        });
+        gapiInited = true;
+        console.log('GAPI client initialized');
+    } catch (error) {
+        console.error('Error initializing GAPI client:', error);
+    }
+}
+
+function gisLoaded() {
+    if (typeof google !== 'undefined' && google.accounts) {
+        try {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: '', // definido dinamicamente
+                prompt: 'consent'
+            });
+            gisInited = true;
+            console.log('GIS client initialized');
+        } catch (error) {
+            console.error('Error initializing GIS client:', error);
+        }
+    } else {
+        console.error('Google Identity Services not available');
+    }
+}
+
+function handleAuthClick() {
+    if (!tokenClient) {
+        console.error('Token client not initialized');
+        updateAuthStatus('Serviço Google temporariamente indisponível', 'error');
+        return;
+    }
+
+    const authBtn = document.getElementById('google-auth-btn');
+    authBtn.innerHTML = '<span class="loading-spinner"></span>Conectando...';
+    authBtn.disabled = true;
+
+    tokenClient.callback = async (resp) => {
+        if (resp.error !== undefined) {
+            console.error('Auth error:', resp);
+            updateAuthStatus('Erro na autenticação. Tente novamente.', 'error');
+            resetAuthButton();
+            return;
+        }
+        
+        isGoogleAuthorized = true;
+        updateAuthStatus('✓ Conectado ao Google Calendar', 'success');
+        updateAuthButton('Conectado ✓', true);
+    };
+
+    try {
+        if (gapi.client.getToken() === null) {
+            tokenClient.requestAccessToken({prompt: 'consent'});
+        } else {
+            tokenClient.requestAccessToken({prompt: ''});
+        }
+    } catch (error) {
+        console.error('Error requesting access token:', error);
+        updateAuthStatus('Erro ao conectar. Tente novamente.', 'error');
+        resetAuthButton();
+    }
+}
+
+function updateAuthStatus(message, type) {
+    const statusElement = document.getElementById('auth-status');
+    if (statusElement) {
+        statusElement.textContent = message;
+        statusElement.style.color = type === 'success' ? 'var(--secondary-gold)' : '#ff4444';
+        statusElement.className = type === 'error' ? 'auth-status error' : 'auth-status';
+    }
+}
+
+function updateAuthButton(text, isConnected) {
+    const authBtn = document.getElementById('google-auth-btn');
+    if (authBtn) {
+        authBtn.innerHTML = text;
+        if (isConnected) {
+            authBtn.style.background = 'var(--secondary-gold)';
+            authBtn.style.color = 'var(--primary-black)';
+            authBtn.disabled = true;
+        }
+    }
+}
+
+function resetAuthButton() {
+    const authBtn = document.getElementById('google-auth-btn');
+    if (authBtn) {
+        authBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            Conectar Google Agenda
+        `;
+        authBtn.style.background = 'var(--accent-white)';
+        authBtn.style.color = '#444';
+        authBtn.disabled = false;
+    }
+}
+
+async function createCalendarEvent() {
+    if (!isGoogleAuthorized || !gapi.client.getToken()) {
+        console.log('Google Calendar not authorized or token missing');
+        return false;
+    }
+    
+    try {
+        const startDateTime = new Date(`${bookingData.date}T${bookingData.time}:00`);
+        const endDateTime = new Date(startDateTime);
+        endDateTime.setHours(endDateTime.getHours() + 1);
+        
+        // Formata as datas corretamente
+        const event = {
+            'summary': `NILTON BARBER - ${bookingData.service}`,
+            'location': 'NILTON BARBER, Lisboa, Portugal',
+            'description': `Agendamento de ${bookingData.service} - €${bookingData.price}\nCliente: ${bookingData.name}\nEmail: ${bookingData.email}\nTelefone: ${bookingData.phone}`,
+            'start': {
+                'dateTime': startDateTime.toISOString(),
+                'timeZone': 'Europe/Lisbon'
+            },
+            'end': {
+                'dateTime': endDateTime.toISOString(),
+                'timeZone': 'Europe/Lisbon'
+            },
+            'reminders': {
+                'useDefault': true
+            }
+        };
+
+        console.log('Creating event:', event);
+
+        const response = await gapi.client.calendar.events.insert({
+            'calendarId': 'primary',
+            'resource': event
+        });
+        
+        console.log('Event created successfully:', response);
+        return true;
+        
+    } catch (error) {
+        console.error('Error creating event:', error);
+        
+        // Log detalhado do erro
+        if (error.result && error.result.error) {
+            console.error('Error details:', error.result.error);
+        }
+        
+        return false;
+    }
+}
+
+async function confirmBooking() {
+    const confirmBtn = document.querySelector('.booking-confirm-btn');
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<span class="loading-spinner"></span>Processando...';
+    
+    try {
+        const calendarSuccess = await createCalendarEvent();
+        
+        document.querySelector('.booking-summary').style.display = 'none';
+        document.querySelector('.booking-buttons').style.display = 'none';
+        
+        const confirmationMessage = document.getElementById('confirmation-message');
+        confirmationMessage.classList.add('show');
+        
+        const calendarStatus = document.getElementById('calendar-status');
+        if (calendarSuccess) {
+            calendarStatus.textContent = '✓ Evento adicionado ao Google Calendar!';
+            calendarStatus.style.color = 'var(--secondary-gold)';
+        } else {
+            calendarStatus.textContent = 'Agendamento confirmado! (Sem integração com Google Calendar)';
+            calendarStatus.style.color = 'rgba(255, 255, 255, 0.7)';
+        }
+        
+        // Envie os dados para um webhook/email (opcional)
+        await sendBookingNotification();
+        
+    } catch (error) {
+        console.error('Error in booking confirmation:', error);
+    }
+    
+    setTimeout(() => {
+        resetBooking();
+    }, 5000);
+}
+
+// Função para enviar notificação do agendamento (opcional)
+async function sendBookingNotification() {
+    // Aqui você pode implementar o envio para um webhook, email, etc.
+    console.log('Booking data:', bookingData);
+    
+    // Exemplo de envio para webhook:
+    /*
+    try {
+        await fetch('https://your-webhook-url.com/booking', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(bookingData)
+        });
+    } catch (error) {
+        console.error('Error sending booking notification:', error);
+    }
+    */
+}
 
 function initParticles() {
     const canvas = document.getElementById('particles-canvas');
+    if (!canvas) return;
+    
     const ctx = canvas.getContext('2d');
     
     canvas.width = window.innerWidth;
@@ -92,6 +341,7 @@ function initParticles() {
 
 function initCursor() {
     const cursorGlow = document.querySelector('.cursor-glow');
+    if (!cursorGlow) return;
     
     document.addEventListener('mousemove', (e) => {
         cursorGlow.style.left = e.clientX + 'px';
@@ -109,6 +359,8 @@ function initNavigation() {
     const menuToggle = document.querySelector('.menu-toggle');
     const navMenu = document.querySelector('.nav-menu');
     const navLinks = document.querySelectorAll('.nav-menu a');
+    
+    if (!navbar || !menuToggle || !navMenu) return;
     
     window.addEventListener('scroll', () => {
         if (window.scrollY > 100) {
@@ -285,6 +537,12 @@ function initBooking() {
     const dateInput = document.getElementById('booking-date');
     const timeSlotsContainer = document.getElementById('time-slots');
     
+    // Adicione o event listener para o botão do Google Auth
+    const googleAuthBtn = document.getElementById('google-auth-btn');
+    if (googleAuthBtn) {
+        googleAuthBtn.addEventListener('click', handleAuthClick);
+    }
+    
     serviceCards.forEach(card => {
         card.addEventListener('click', () => {
             serviceCards.forEach(c => c.classList.remove('selected'));
@@ -389,31 +647,7 @@ function initBooking() {
         });
     });
     
-    confirmBtn.addEventListener('click', async () => {
-        confirmBtn.disabled = true;
-        confirmBtn.textContent = 'Processando...';
-        
-        const success = await createCalendarEvent();
-        
-        document.querySelector('.booking-summary').style.display = 'none';
-        document.querySelector('.booking-buttons').style.display = 'none';
-        
-        const confirmationMessage = document.getElementById('confirmation-message');
-        confirmationMessage.classList.add('show');
-        
-        const calendarStatus = document.getElementById('calendar-status');
-        if (success) {
-            calendarStatus.textContent = '✓ Evento adicionado ao Google Calendar!';
-            calendarStatus.style.color = 'var(--secondary-gold)';
-        } else {
-            calendarStatus.textContent = 'Confirmação enviada por email.';
-            calendarStatus.style.color = 'rgba(255, 255, 255, 0.7)';
-        }
-        
-        setTimeout(() => {
-            resetBooking();
-        }, 5000);
-    });
+    confirmBtn.addEventListener('click', confirmBooking);
     
     function updateSummary() {
         document.getElementById('summary-service').textContent = bookingData.service;
@@ -455,102 +689,6 @@ function initBooking() {
         
         confirmBtn.disabled = false;
         confirmBtn.textContent = 'Confirmar Agendamento';
-    }
-}
-
-function gapiLoaded() {
-    gapi.load('client', async () => {
-        await gapi.client.init({
-            apiKey: API_KEY,
-            discoveryDocs: [DISCOVERY_DOC],
-        });
-        gapiInited = true;
-    });
-}
-
-function gisLoaded() {
-    tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: '',
-    });
-    gisInited = true;
-}
-
-const googleAuthBtn = document.getElementById('google-auth-btn');
-if (googleAuthBtn) {
-    googleAuthBtn.addEventListener('click', handleAuthClick);
-}
-
-function handleAuthClick() {
-    tokenClient.callback = async (resp) => {
-        if (resp.error !== undefined) {
-            console.error('Auth error:', resp);
-            document.getElementById('auth-status').textContent = 'Erro na autenticação. Tente novamente.';
-            return;
-        }
-        
-        isGoogleAuthorized = true;
-        document.getElementById('auth-status').textContent = '✓ Conectado ao Google Calendar';
-        document.getElementById('auth-status').style.color = 'var(--secondary-gold)';
-        googleAuthBtn.textContent = 'Conectado ✓';
-        googleAuthBtn.style.background = 'var(--secondary-gold)';
-        googleAuthBtn.style.color = 'var(--primary-black)';
-        googleAuthBtn.disabled = true;
-    };
-
-    if (gapi.client.getToken() === null) {
-        tokenClient.requestAccessToken({prompt: 'consent'});
-    } else {
-        tokenClient.requestAccessToken({prompt: ''});
-    }
-}
-
-async function createCalendarEvent() {
-    if (!isGoogleAuthorized) {
-        console.log('Google Calendar not authorized');
-        return false;
-    }
-    
-    try {
-        const startDateTime = new Date(`${bookingData.date}T${bookingData.time}:00`);
-        const endDateTime = new Date(startDateTime);
-        endDateTime.setHours(endDateTime.getHours() + 1);
-        
-        const event = {
-            'summary': `NILTON BARBER - ${bookingData.service}`,
-            'location': 'NILTON BARBER, Lisboa, Portugal',
-            'description': `Agendamento de ${bookingData.service} - €${bookingData.price}\nCliente: ${bookingData.name}\nTelefone: ${bookingData.phone}`,
-            'start': {
-                'dateTime': startDateTime.toISOString(),
-                'timeZone': 'Europe/Lisbon'
-            },
-            'end': {
-                'dateTime': endDateTime.toISOString(),
-                'timeZone': 'Europe/Lisbon'
-            },
-            'attendees': [
-                {'email': bookingData.email}
-            ],
-            'reminders': {
-                'useDefault': false,
-                'overrides': [
-                    {'method': 'email', 'minutes': 24 * 60},
-                    {'method': 'popup', 'minutes': 30}
-                ]
-            }
-        };
-
-        const request = await gapi.client.calendar.events.insert({
-            'calendarId': 'primary',
-            'resource': event
-        });
-        
-        console.log('Event created:', request.result);
-        return true;
-    } catch (error) {
-        console.error('Error creating event:', error);
-        return false;
     }
 }
 
