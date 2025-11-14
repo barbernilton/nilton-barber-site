@@ -506,6 +506,42 @@ function initScrollAnimations() {
     });
 }
 
+function resetBooking() {
+    console.log('🔄 Reiniciando formulário de agendamento...');
+    
+    // Volta para o passo 1
+    document.querySelector('.step-4').classList.remove('active');
+    document.querySelector('.step-1').classList.add('active');
+    
+    // Reseta progresso
+    document.querySelectorAll('.progress-step').forEach(step => step.classList.remove('active'));
+    document.querySelector('[data-step="1"]').classList.add('active');
+    
+    // Limpa seleções
+    document.querySelectorAll('.service-selection-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('customer-form').reset();
+    document.getElementById('booking-date').value = '';
+    document.getElementById('time-slots').innerHTML = '';
+    
+    // Mostra elementos novamente
+    document.querySelector('.booking-summary').style.display = 'block';
+    document.querySelector('.booking-buttons').style.display = 'flex';
+    document.getElementById('confirmation-message').classList.remove('show');
+    
+    // Limpa dados
+    for (let key in bookingData) {
+        bookingData[key] = '';
+    }
+    bookingData.price = 0;
+    
+    // Reseta botão de confirmação
+    const confirmBtn = document.querySelector('.booking-confirm-btn');
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = 'Confirmar Agendamento';
+    
+    console.log('✅ Formulário reiniciado');
+}
+
 const videoPlaceholder = document.querySelector('.video-placeholder');
 if (videoPlaceholder) {
     videoPlaceholder.addEventListener('click', function() {
