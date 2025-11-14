@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initNavigation();
     initGallery();
     initServices();
-    initBooking();
+    king();
     initScrollAnimations();
 });
 
@@ -538,6 +538,7 @@ function initBooking() {
         return;
     }
     
+    // Seleção de serviço
     serviceCards.forEach(card => {
         card.addEventListener('click', () => {
             serviceCards.forEach(c => c.classList.remove('selected'));
@@ -546,27 +547,47 @@ function initBooking() {
             bookingData.service = card.dataset.service;
             bookingData.price = card.dataset.price;
             
+            console.log('✅ Serviço selecionado:', bookingData.service, 'Preço:', bookingData.price);
+            
             const nextBtn = document.querySelector('.step-1 .booking-next-btn');
             if (nextBtn) nextBtn.disabled = false;
         });
     });
     
-    [nameInput, emailInput, phoneInput].forEach(input => {
-        input.addEventListener('input', () => {
-            const allFilled = nameInput.value && emailInput.value && phoneInput.value;
-            const nextBtn = document.querySelector('.step-2 .booking-next-btn');
-            if (nextBtn) nextBtn.disabled = !allFilled;
-            
-            if (allFilled) {
-                bookingData.name = nameInput.value;
-                bookingData.email = emailInput.value;
-                bookingData.phone = phoneInput.value;
-            }
-        });
+    // Dados do cliente - ATUALIZA EM TEMPO REAL
+    nameInput.addEventListener('input', () => {
+        bookingData.name = nameInput.value;
+        console.log('Nome atualizado:', bookingData.name);
+        updateStep2Button();
     });
     
+    emailInput.addEventListener('input', () => {
+        bookingData.email = emailInput.value;
+        console.log('Email atualizado:', bookingData.email);
+        updateStep2Button();
+    });
+    
+    phoneInput.addEventListener('input', () => {
+        bookingData.phone = phoneInput.value;
+        console.log('Telefone atualizado:', bookingData.phone);
+        updateStep2Button();
+    });
+    
+    function updateStep2Button() {
+        const allFilled = bookingData.name && bookingData.email && bookingData.phone;
+        const nextBtn = document.querySelector('.step-2 .booking-next-btn');
+        if (nextBtn) {
+            nextBtn.disabled = !allFilled;
+            console.log('Botão step 2:', allFilled ? 'habilitado' : 'desabilitado');
+        }
+    }
+    
+    // Data e hora
     dateInput.addEventListener('change', () => {
+        bookingData.date = dateInput.value;
+        console.log('Data selecionada:', bookingData.date);
         generateTimeSlots();
+        updateStep3Button();
     });
     
     const today = new Date();
@@ -577,7 +598,6 @@ function initBooking() {
         const selectedDate = dateInput.value;
         if (!selectedDate) return;
         
-        bookingData.date = selectedDate;
         timeSlotsContainer.innerHTML = '';
         
         const timeSlots = [
@@ -593,21 +613,28 @@ function initBooking() {
             slot.dataset.time = time;
             
             slot.addEventListener('click', () => {
-                if (slot.classList.contains('disabled')) return;
-                
                 document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected'));
                 slot.classList.add('selected');
                 
                 bookingData.time = time;
-                
-                const nextBtn = document.querySelector('.step-3 .booking-next-btn');
-                if (nextBtn) nextBtn.disabled = false;
+                console.log('Horário selecionado:', bookingData.time);
+                updateStep3Button();
             });
             
             timeSlotsContainer.appendChild(slot);
         });
     }
     
+    function updateStep3Button() {
+        const allFilled = bookingData.date && bookingData.time;
+        const nextBtn = document.querySelector('.step-3 .booking-next-btn');
+        if (nextBtn) {
+            nextBtn.disabled = !allFilled;
+            console.log('Botão step 3:', allFilled ? 'habilitado' : 'desabilitado');
+        }
+    }
+    
+    // Navegação entre steps
     const nextBtns = document.querySelectorAll('.booking-next-btn');
     const backBtns = document.querySelectorAll('.booking-back-btn');
     const confirmBtn = document.querySelector('.booking-confirm-btn');
@@ -657,7 +684,10 @@ function initBooking() {
     });
     
     if (confirmBtn) {
-        confirmBtn.addEventListener('click', confirmBooking);
+        confirmBtn.addEventListener('click', () => {
+            console.log('📤 Dados finais enviados:', bookingData);
+            confirmBooking();
+        });
     }
     
     function updateSummary() {
@@ -688,7 +718,8 @@ function initBooking() {
         }
         
         if (elements.time) elements.time.textContent = bookingData.time;
+        
+        console.log('📋 Resumo atualizado:', bookingData);
     }
 }
-
 console.log('✅ script.js carregado com sucesso!');
