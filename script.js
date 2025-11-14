@@ -506,6 +506,31 @@ function initScrollAnimations() {
     });
 }
 
+
+
+const videoPlaceholder = document.querySelector('.video-placeholder');
+if (videoPlaceholder) {
+    videoPlaceholder.addEventListener('click', function() {
+        const video = document.getElementById('ambiente-video');
+        this.style.display = 'none';
+        video.play();
+    });
+}
+
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+    });
+});
+
+
 function resetBooking() {
     console.log('🔄 Reiniciando formulário de agendamento...');
     
@@ -541,25 +566,3 @@ function resetBooking() {
     
     console.log('✅ Formulário reiniciado');
 }
-
-const videoPlaceholder = document.querySelector('.video-placeholder');
-if (videoPlaceholder) {
-    videoPlaceholder.addEventListener('click', function() {
-        const video = document.getElementById('ambiente-video');
-        this.style.display = 'none';
-        video.play();
-    });
-}
-
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-            target.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start'
-            });
-        }
-    });
-});
