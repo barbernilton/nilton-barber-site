@@ -36,9 +36,18 @@ async function confirmBooking() {
             body: JSON.stringify(bookingData)
         });
         
-        const result = await response.json();
+        // Verifica se a resposta é JSON válido
+        const responseText = await response.text();
+        let result;
         
-        if (response.ok) {
+        try {
+            result = JSON.parse(responseText);
+        } catch (e) {
+            console.error('Resposta não é JSON:', responseText);
+            throw new Error('Resposta inválida do servidor');
+        }
+        
+        if (response.ok && result.success) {
             // Sucesso
             document.querySelector('.booking-summary').style.display = 'none';
             document.querySelector('.booking-buttons').style.display = 'none';
@@ -51,7 +60,7 @@ async function confirmBooking() {
             calendarStatus.style.color = 'var(--secondary-gold)';
             
         } else {
-            throw new Error(result.error || 'Erro no agendamento');
+            throw new Error(result.message || 'Erro no agendamento');
         }
         
     } catch (error) {
@@ -67,6 +76,10 @@ async function confirmBooking() {
         const calendarStatus = document.getElementById('calendar-status');
         calendarStatus.textContent = 'Agendamento confirmado! Entraremos em contato para confirmar.';
         calendarStatus.style.color = 'var(--secondary-gold)';
+        
+        // Reseta o botão mesmo com erro
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirmar Agendamento';
     }
     
     setTimeout(() => {
@@ -74,7 +87,61 @@ async function confirmBooking() {
     }, 5000);
 }
 
-// Restante das funções de UI permanecem iguais
+function resetBooking() {
+    console.log('🔄 Reiniciando formulário de agendamento...');
+    
+    // Volta para o passo 1
+    document.querySelector('.step-4').classList.remove('active');
+    document.querySelector('.step-1').classList.add('active');
+    
+    // Reseta progresso
+    document.querySelectorAll('.progress-step').forEach(step => step.classList.remove('active'));
+    document.querySelector('[data-step="1"]').classList.add('active');
+    
+    // Limpa seleções
+    document.querySelectorAll('.service-selection-card').forEach(c => c.classList.remove('selected'));
+    
+    // Limpa formulário
+    const customerForm = document.getElementById('customer-form');
+    if (customerForm) customerForm.reset();
+    
+    const dateInput = document.getElementById('booking-date');
+    if (dateInput) dateInput.value = '';
+    
+    const timeSlots = document.getElementById('time-slots');
+    if (timeSlots) timeSlots.innerHTML = '';
+    
+    // Mostra elementos novamente
+    const bookingSummary = document.querySelector('.booking-summary');
+    const bookingButtons = document.querySelector('.booking-buttons');
+    const confirmationMessage = document.getElementById('confirmation-message');
+    
+    if (bookingSummary) bookingSummary.style.display = 'block';
+    if (bookingButtons) bookingButtons.style.display = 'flex';
+    if (confirmationMessage) confirmationMessage.classList.remove('show');
+    
+    // Limpa dados
+    for (let key in bookingData) {
+        bookingData[key] = '';
+    }
+    bookingData.price = 0;
+    
+    // Reseta botões de próximo passo
+    const nextBtns = document.querySelectorAll('.booking-next-btn');
+    nextBtns.forEach(btn => {
+        btn.disabled = true;
+    });
+    
+    // Reseta botão de confirmação
+    const confirmBtn = document.querySelector('.booking-confirm-btn');
+    if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirmar Agendamento';
+    }
+    
+    console.log('✅ Formulário reiniciado');
+}
+
 function initParticles() {
     const canvas = document.getElementById('particles-canvas');
     if (!canvas) return;
@@ -313,7 +380,9 @@ function initServices() {
             bookingData.price = price;
             
             const agendamentoSection = document.getElementById('agendamento');
-            agendamentoSection.scrollIntoView({ behavior: 'smooth' });
+            if (agendamentoSection) {
+                agendamentoSection.scrollIntoView({ behavior: 'smooth' });
+            }
             
             const serviceCards = document.querySelectorAll('.service-selection-card');
             serviceCards.forEach(card => {
@@ -334,6 +403,11 @@ function initBooking() {
     const dateInput = document.getElementById('booking-date');
     const timeSlotsContainer = document.getElementById('time-slots');
     
+    if (!serviceCards.length || !customerForm || !nameInput || !emailInput || !phoneInput || !dateInput || !timeSlotsContainer) {
+        console.error('❌ Elementos do formulário não encontrados');
+        return;
+    }
+    
     serviceCards.forEach(card => {
         card.addEventListener('click', () => {
             serviceCards.forEach(c => c.classList.remove('selected'));
@@ -343,7 +417,7 @@ function initBooking() {
             bookingData.price = card.dataset.price;
             
             const nextBtn = document.querySelector('.step-1 .booking-next-btn');
-            nextBtn.disabled = false;
+            if (nextBtn) nextBtn.disabled = false;
         });
     });
     
@@ -351,7 +425,7 @@ function initBooking() {
         input.addEventListener('input', () => {
             const allFilled = nameInput.value && emailInput.value && phoneInput.value;
             const nextBtn = document.querySelector('.step-2 .booking-next-btn');
-            nextBtn.disabled = !allFilled;
+            if (nextBtn) nextBtn.disabled = !allFilled;
             
             if (allFilled) {
                 bookingData.name = nameInput.value;
@@ -397,7 +471,7 @@ function initBooking() {
                 bookingData.time = time;
                 
                 const nextBtn = document.querySelector('.step-3 .booking-next-btn');
-                nextBtn.disabled = false;
+                if (nextBtn) nextBtn.disabled = false;
             });
             
             timeSlotsContainer.appendChild(slot);
@@ -413,14 +487,21 @@ function initBooking() {
             const currentStep = index + 1;
             const nextStep = currentStep + 1;
             
-            document.querySelector(`.step-${currentStep}`).classList.remove('active');
-            document.querySelector(`.step-${nextStep}`).classList.add('active');
+            const currentStepEl = document.querySelector(`.step-${currentStep}`);
+            const nextStepEl = document.querySelector(`.step-${nextStep}`);
+            const currentProgress = document.querySelector(`[data-step="${currentStep}"]`);
+            const nextProgress = document.querySelector(`[data-step="${nextStep}"]`);
             
-            document.querySelector(`[data-step="${currentStep}"]`).classList.remove('active');
-            document.querySelector(`[data-step="${nextStep}"]`).classList.add('active');
-            
-            if (nextStep === 4) {
-                updateSummary();
+            if (currentStepEl && nextStepEl && currentProgress && nextProgress) {
+                currentStepEl.classList.remove('active');
+                nextStepEl.classList.add('active');
+                
+                currentProgress.classList.remove('active');
+                nextProgress.classList.add('active');
+                
+                if (nextStep === 4) {
+                    updateSummary();
+                }
             }
         });
     });
@@ -430,56 +511,53 @@ function initBooking() {
             const currentStep = index + 2;
             const prevStep = currentStep - 1;
             
-            document.querySelector(`.step-${currentStep}`).classList.remove('active');
-            document.querySelector(`.step-${prevStep}`).classList.add('active');
+            const currentStepEl = document.querySelector(`.step-${currentStep}`);
+            const prevStepEl = document.querySelector(`.step-${prevStep}`);
+            const currentProgress = document.querySelector(`[data-step="${currentStep}"]`);
+            const prevProgress = document.querySelector(`[data-step="${prevStep}"]`);
             
-            document.querySelector(`[data-step="${currentStep}"]`).classList.remove('active');
-            document.querySelector(`[data-step="${prevStep}"]`).classList.add('active');
+            if (currentStepEl && prevStepEl && currentProgress && prevProgress) {
+                currentStepEl.classList.remove('active');
+                prevStepEl.classList.add('active');
+                
+                currentProgress.classList.remove('active');
+                prevProgress.classList.add('active');
+            }
         });
     });
     
-    confirmBtn.addEventListener('click', confirmBooking);
-    
-    function updateSummary() {
-        document.getElementById('summary-service').textContent = bookingData.service;
-        document.getElementById('summary-price').textContent = `€${bookingData.price}`;
-        document.getElementById('summary-name').textContent = bookingData.name;
-        document.getElementById('summary-email').textContent = bookingData.email;
-        document.getElementById('summary-phone').textContent = bookingData.phone;
-        
-        const date = new Date(bookingData.date);
-        const formattedDate = date.toLocaleDateString('pt-BR', {
-            day: '2-digit',
-            month: 'long',
-            year: 'numeric'
-        });
-        document.getElementById('summary-date').textContent = formattedDate;
-        document.getElementById('summary-time').textContent = bookingData.time;
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', confirmBooking);
     }
     
-    function resetBooking() {
-        document.querySelector('.step-4').classList.remove('active');
-        document.querySelector('.step-1').classList.add('active');
+    function updateSummary() {
+        const elements = {
+            service: document.getElementById('summary-service'),
+            price: document.getElementById('summary-price'),
+            name: document.getElementById('summary-name'),
+            email: document.getElementById('summary-email'),
+            phone: document.getElementById('summary-phone'),
+            date: document.getElementById('summary-date'),
+            time: document.getElementById('summary-time')
+        };
         
-        document.querySelectorAll('.progress-step').forEach(step => step.classList.remove('active'));
-        document.querySelector('[data-step="1"]').classList.add('active');
+        if (elements.service) elements.service.textContent = bookingData.service;
+        if (elements.price) elements.price.textContent = `€${bookingData.price}`;
+        if (elements.name) elements.name.textContent = bookingData.name;
+        if (elements.email) elements.email.textContent = bookingData.email;
+        if (elements.phone) elements.phone.textContent = bookingData.phone;
         
-        serviceCards.forEach(c => c.classList.remove('selected'));
-        customerForm.reset();
-        dateInput.value = '';
-        timeSlotsContainer.innerHTML = '';
-        
-        document.querySelector('.booking-summary').style.display = 'block';
-        document.querySelector('.booking-buttons').style.display = 'flex';
-        document.getElementById('confirmation-message').classList.remove('show');
-        
-        for (let key in bookingData) {
-            bookingData[key] = '';
+        if (elements.date && bookingData.date) {
+            const date = new Date(bookingData.date);
+            const formattedDate = date.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric'
+            });
+            elements.date.textContent = formattedDate;
         }
-        bookingData.price = 0;
         
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirmar Agendamento';
+        if (elements.time) elements.time.textContent = bookingData.time;
     }
 }
 
@@ -506,17 +584,21 @@ function initScrollAnimations() {
     });
 }
 
-
-
+// Video placeholder functionality
 const videoPlaceholder = document.querySelector('.video-placeholder');
 if (videoPlaceholder) {
     videoPlaceholder.addEventListener('click', function() {
         const video = document.getElementById('ambiente-video');
-        this.style.display = 'none';
-        video.play();
+        if (video) {
+            this.style.display = 'none';
+            video.play().catch(error => {
+                console.error('Erro ao reproduzir vídeo:', error);
+            });
+        }
     });
 }
 
+// Smooth scrolling for anchor links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {
         e.preventDefault();
@@ -530,39 +612,28 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     });
 });
 
-
-function resetBooking() {
-    console.log('🔄 Reiniciando formulário de agendamento...');
-    
-    // Volta para o passo 1
-    document.querySelector('.step-4').classList.remove('active');
-    document.querySelector('.step-1').classList.add('active');
-    
-    // Reseta progresso
-    document.querySelectorAll('.progress-step').forEach(step => step.classList.remove('active'));
-    document.querySelector('[data-step="1"]').classList.add('active');
-    
-    // Limpa seleções
-    document.querySelectorAll('.service-selection-card').forEach(c => c.classList.remove('selected'));
-    document.getElementById('customer-form').reset();
-    document.getElementById('booking-date').value = '';
-    document.getElementById('time-slots').innerHTML = '';
-    
-    // Mostra elementos novamente
-    document.querySelector('.booking-summary').style.display = 'block';
-    document.querySelector('.booking-buttons').style.display = 'flex';
-    document.getElementById('confirmation-message').classList.remove('show');
-    
-    // Limpa dados
-    for (let key in bookingData) {
-        bookingData[key] = '';
-    }
-    bookingData.price = 0;
-    
-    // Reseta botão de confirmação
-    const confirmBtn = document.querySelector('.booking-confirm-btn');
-    confirmBtn.disabled = false;
-    confirmBtn.textContent = 'Confirmar Agendamento';
-    
-    console.log('✅ Formulário reiniciado');
+// Loading spinner CSS (adiciona dinamicamente se não existir)
+if (!document.querySelector('style[data-loading-spinner]')) {
+    const style = document.createElement('style');
+    style.setAttribute('data-loading-spinner', 'true');
+    style.textContent = `
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    `;
+    document.head.appendChild(style);
 }
+
+console.log('✅ script.js carregado com sucesso!');
