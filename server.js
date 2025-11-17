@@ -41,7 +41,7 @@ rQecIq9MmT9zRlywFOrrEvQ+zBSD+QhJ/kk6bIGvFjqnJx3dk7tbYc3La5iDShYD
 RsCxHFf1tkAqQGnaZH10vAnUpvTBr9DjKOX9/jpg9CcxtVHNLuK1K0iOAdpsRGYq
 bBkJrATX9C/PxPiSYM9GqA==
 -----END PRIVATE KEY-----`;
-const CALENDAR_ID = '5a2e76f0624721de6c42793d0e912fad4fc814b8cccd260cee329780715bbc1b@group.calendar.google.com'; 
+const CALENDAR_ID = 'barbersite6@gmail.com'; 
 
 console.log('🔧 Iniciando servidor Nilton Barber...');
 console.log('📧 Service Account:', SERVICE_ACCOUNT_EMAIL);
