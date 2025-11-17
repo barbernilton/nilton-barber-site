@@ -15,11 +15,12 @@ document.addEventListener('DOMContentLoaded', function() {
     initNavigation();
     initGallery();
     initServices();
-    king();
+    initBooking();
     initScrollAnimations();
+    initVideo();
+    initSmoothScrolling();
 });
 
-// Adicionando todas as funções que estavam faltando
 function initParticles() {
     const canvas = document.getElementById('particles-canvas');
     if (!canvas) {
@@ -297,7 +298,6 @@ function initScrollAnimations() {
     });
 }
 
-// Video placeholder functionality
 function initVideo() {
     const videoPlaceholder = document.querySelector('.video-placeholder');
     if (videoPlaceholder) {
@@ -313,7 +313,6 @@ function initVideo() {
     }
 }
 
-// Smooth scrolling for anchor links
 function initSmoothScrolling() {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
@@ -353,22 +352,6 @@ if (!document.querySelector('style[data-loading-spinner]')) {
     document.head.appendChild(style);
 }
 
-// Atualize a função DOMContentLoaded para incluir as novas funções
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded - initializing app');
-    initParticles();
-    initCursor();
-    initNavigation();
-    initGallery();
-    initServices();
-    initBooking();
-    initScrollAnimations();
-    initVideo();
-    initSmoothScrolling();
-});
-
-// ... (mantenha as funções confirmBooking, showSuccessMessage, showErrorMessage, resetBooking, e initBooking do código anterior)
-
 async function confirmBooking() {
     console.log('Confirming booking...');
     
@@ -396,7 +379,8 @@ async function confirmBooking() {
         console.log('Resposta recebida:', response.status);
         
         if (!response.ok) {
-            throw new Error(`Erro HTTP: ${response.status}`);
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.message || `Erro HTTP: ${response.status}`);
         }
         
         const result = await response.json();
@@ -412,7 +396,6 @@ async function confirmBooking() {
         console.error('Error in booking confirmation:', error);
         showErrorMessage(error.message);
     } finally {
-        // SEMPRE reativa o botão, mesmo em caso de erro
         confirmBtn.disabled = false;
         confirmBtn.textContent = originalText;
     }
@@ -722,4 +705,5 @@ function initBooking() {
         console.log('📋 Resumo atualizado:', bookingData);
     }
 }
+
 console.log('✅ script.js carregado com sucesso!');
