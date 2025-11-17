@@ -41,7 +41,7 @@ rQecIq9MmT9zRlywFOrrEvQ+zBSD+QhJ/kk6bIGvFjqnJx3dk7tbYc3La5iDShYD
 RsCxHFf1tkAqQGnaZH10vAnUpvTBr9DjKOX9/jpg9CcxtVHNLuK1K0iOAdpsRGYq
 bBkJrATX9C/PxPiSYM9GqA==
 -----END PRIVATE KEY-----`;
-const CALENDAR_ID = '5a2e76f0624721de6c42793d0e912fad4fc814b8cccd260cee329780715bbc1b@group.calendar.google.com'; // ou 'primary'
+const CALENDAR_ID = '5a2e76f0624721de6c42793d0e912fad4fc814b8cccd260cee329780715bbc1b@group.calendar.google.com'; 
 
 console.log('🔧 Iniciando servidor Nilton Barber...');
 console.log('📧 Service Account:', SERVICE_ACCOUNT_EMAIL);
@@ -75,29 +75,6 @@ app.post('/api/bookings', async (req, res) => {
             });
         }
 
-        // Validação de email
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return res.status(400).json({
-                success: false,
-                error: 'Email inválido',
-                message: 'Por favor, insira um email válido.'
-            });
-        }
-
-        // Validação de data
-        const selectedDate = new Date(date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        if (selectedDate < today) {
-            return res.status(400).json({
-                success: false,
-                error: 'Data inválida',
-                message: 'Não é possível agendar para datas passadas.'
-            });
-        }
-        
         console.log('✅ Dados validados, criando evento no calendário...');
         
         // Cria evento no Google Calendar
@@ -121,21 +98,13 @@ app.post('/api/bookings', async (req, res) => {
         
     } catch (error) {
         console.error('❌ Erro no agendamento:', error);
-        
-        let errorMessage = 'Não foi possível criar o agendamento. Tente novamente.';
-        
-        if (error.message.includes('invalid_grant')) {
-            errorMessage = 'Erro de autenticação. Verifique as credenciais do Service Account.';
-        } else if (error.message.includes('quota')) {
-            errorMessage = 'Limite de agendamentos atingido. Tente novamente mais tarde.';
-        } else if (error.message.includes('calendar') || error.message.includes('notFound')) {
-            errorMessage = 'Calendário não encontrado. Verifique o Calendar ID.';
-        }
+        console.error('🔍 Stack trace:', error.stack);
         
         res.status(500).json({ 
             success: false,
             error: 'Erro no agendamento',
-            message: errorMessage
+            message: 'Não foi possível criar o agendamento. Tente novamente.',
+            debug: error.message // Mostra a mensagem real do erro
         });
     }
 });
@@ -145,13 +114,26 @@ async function createCalendarEvent(bookingData) {
     const { service, price, name, email, phone, date, time } = bookingData;
     
     try {
-        console.log('🔑 Autenticando com Google Calendar API...');
+        console.log('🔑 Iniciando autenticação com Google Calendar API...');
+        console.log('📧 Usando Service Account:', SERVICE_ACCOUNT_EMAIL);
+        console.log('📅 Calendar ID:', CALENDAR_ID);
+
+        // Verifica se as chaves estão presentes
+        if (!SERVICE_ACCOUNT_EMAIL || !SERVICE_ACCOUNT_PRIVATE_KEY) {
+            throw new Error('Service Account email ou private key não configurados');
+        }
 
         const auth = new google.auth.JWT({
             email: SERVICE_ACCOUNT_EMAIL,
             key: SERVICE_ACCOUNT_PRIVATE_KEY,
             scopes: ['https://www.googleapis.com/auth/calendar']
         });
+
+        console.log('✅ Auth configurada, testando autenticação...');
+
+        // Testa a autenticação primeiro
+        const client = await auth.getClient();
+        console.log('✅ Autenticação com Google API bem-sucedida');
 
         const calendar = google.calendar({ version: 'v3', auth });
         
@@ -160,6 +142,12 @@ async function createCalendarEvent(bookingData) {
         const endDateTime = new Date(startDateTime);
         endDateTime.setHours(endDateTime.getHours() + 1);
         
+        console.log('📅 Criando evento para:', {
+            date: startDateTime.toISOString(),
+            time: time,
+            service: service
+        });
+
         const event = {
             summary: `NILTON BARBER - ${service}`,
             location: 'NILTON BARBER, Lisboa, Portugal',
@@ -184,11 +172,15 @@ Agendado via Site Nilton Barber
                 { email: email, displayName: name }
             ],
             reminders: {
-                useDefault: true,
+                useDefault: false,
+                overrides: [
+                    { method: 'email', minutes: 24 * 60 },
+                    { method: 'popup', minutes: 30 }
+                ]
             },
         };
         
-        console.log('📝 Criando evento no calendário...');
+        console.log('📝 Enviando requisição para criar evento...');
         
         const response = await calendar.events.insert({
             calendarId: CALENDAR_ID,
@@ -196,48 +188,98 @@ Agendado via Site Nilton Barber
             sendUpdates: 'none',
         });
         
-        console.log('✅ Evento criado com sucesso:', response.data.id);
+        console.log('✅ Evento criado com sucesso! ID:', response.data.id);
+        console.log('🔗 Link do evento:', response.data.htmlLink);
+        
         return response.data.id;
         
     } catch (error) {
-        console.error('❌ Erro ao criar evento no Calendar:', error);
+        console.error('❌ Erro detalhado ao criar evento no Calendar:');
+        console.error('📌 Mensagem:', error.message);
+        console.error('📌 Código:', error.code);
+        
+        if (error.response) {
+            console.error('📌 Status:', error.response.status);
+            console.error('📌 Status Text:', error.response.statusText);
+            console.error('📌 Data:', JSON.stringify(error.response.data, null, 2));
+        }
+        
+        if (error.errors) {
+            error.errors.forEach((err, index) => {
+                console.error(`📌 Erro ${index + 1}:`, err.message, 'Domain:', err.domain, 'Reason:', err.reason);
+            });
+        }
+        
         throw new Error(`Falha ao criar evento: ${error.message}`);
     }
 }
 
-// Rota para testar a configuração
+// Rota de debug para testar a configuração
 app.get('/api/debug', async (req, res) => {
     try {
         console.log('🔧 Testando configuração do Google Calendar...');
         
+        if (!SERVICE_ACCOUNT_EMAIL || !SERVICE_ACCOUNT_PRIVATE_KEY) {
+            return res.status(500).json({
+                success: false,
+                message: 'Service Account não configurado',
+                serviceAccount: !!SERVICE_ACCOUNT_EMAIL,
+                privateKey: !!SERVICE_ACCOUNT_PRIVATE_KEY
+            });
+        }
+
         const auth = new google.auth.JWT({
             email: SERVICE_ACCOUNT_EMAIL,
             key: SERVICE_ACCOUNT_PRIVATE_KEY,
             scopes: ['https://www.googleapis.com/auth/calendar']
         });
 
+        console.log('✅ Auth configurada, testando autenticação...');
+        const client = await auth.getClient();
+        console.log('✅ Autenticação bem-sucedida');
+
         const calendar = google.calendar({ version: 'v3', auth });
         
         // Tenta listar calendários
+        console.log('📋 Listando calendários disponíveis...');
         const calendars = await calendar.calendarList.list();
         
+        // Tenta acessar o calendário específico
+        console.log('🔍 Verificando acesso ao calendário:', CALENDAR_ID);
+        const calendarInfo = await calendar.calendars.get({
+            calendarId: CALENDAR_ID
+        });
+
         res.json({
             success: true,
             message: 'Conexão com Google Calendar OK',
             serviceAccount: SERVICE_ACCOUNT_EMAIL,
             calendarId: CALENDAR_ID,
+            calendarAccess: 'OK',
             availableCalendars: calendars.data.items.map(cal => ({
                 id: cal.id,
-                summary: cal.summary
+                summary: cal.summary,
+                accessRole: cal.accessRole
             }))
         });
         
     } catch (error) {
-        console.error('❌ Erro no teste:', error);
+        console.error('❌ Erro no teste de configuração:', error);
+        
+        let errorDetails = {
+            message: error.message,
+            code: error.code
+        };
+        
+        if (error.response) {
+            errorDetails.status = error.response.status;
+            errorDetails.data = error.response.data;
+        }
+        
         res.status(500).json({
             success: false,
-            message: 'Erro na configuração',
-            error: error.message
+            message: 'Erro na configuração do Google Calendar',
+            error: errorDetails
         });
     }
 });
