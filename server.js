@@ -104,7 +104,7 @@ app.post('/api/bookings', async (req, res) => {
             success: false,
             error: 'Erro no agendamento',
             message: 'Não foi possível criar o agendamento. Tente novamente.',
-            debug: error.message // Mostra a mensagem real do erro
+            debug: error.message
         });
     }
 });
@@ -115,25 +115,20 @@ async function createCalendarEvent(bookingData) {
     
     try {
         console.log('🔑 Iniciando autenticação com Google Calendar API...');
-        console.log('📧 Usando Service Account:', SERVICE_ACCOUNT_EMAIL);
-        console.log('📅 Calendar ID:', CALENDAR_ID);
 
         // Verifica se as chaves estão presentes
         if (!SERVICE_ACCOUNT_EMAIL || !SERVICE_ACCOUNT_PRIVATE_KEY) {
             throw new Error('Service Account email ou private key não configurados');
         }
 
-        const auth = new google.auth.JWT({
-            email: SERVICE_ACCOUNT_EMAIL,
-            key: SERVICE_ACCOUNT_PRIVATE_KEY,
-            scopes: ['https://www.googleapis.com/auth/calendar']
-        });
+        const auth = new google.auth.JWT(
+            SERVICE_ACCOUNT_EMAIL,
+            null,
+            SERVICE_ACCOUNT_PRIVATE_KEY,
+            ['https://www.googleapis.com/auth/calendar']
+        );
 
-        console.log('✅ Auth configurada, testando autenticação...');
-
-        // Testa a autenticação primeiro
-        const client = await auth.getClient();
-        console.log('✅ Autenticação com Google API bem-sucedida');
+        console.log('✅ Auth configurada, criando cliente calendar...');
 
         const calendar = google.calendar({ version: 'v3', auth });
         
@@ -172,11 +167,7 @@ Agendado via Site Nilton Barber
                 { email: email, displayName: name }
             ],
             reminders: {
-                useDefault: false,
-                overrides: [
-                    { method: 'email', minutes: 24 * 60 },
-                    { method: 'popup', minutes: 30 }
-                ]
+                useDefault: true,
             },
         };
         
@@ -204,17 +195,11 @@ Agendado via Site Nilton Barber
             console.error('📌 Data:', JSON.stringify(error.response.data, null, 2));
         }
         
-        if (error.errors) {
-            error.errors.forEach((err, index) => {
-                console.error(`📌 Erro ${index + 1}:`, err.message, 'Domain:', err.domain, 'Reason:', err.reason);
-            });
-        }
-        
         throw new Error(`Falha ao criar evento: ${error.message}`);
     }
 }
 
-// Rota de debug para testar a configuração
+// Rota de debug para testar a configuração (CORRIGIDA)
 app.get('/api/debug', async (req, res) => {
     try {
         console.log('🔧 Testando configuração do Google Calendar...');
@@ -228,34 +213,28 @@ app.get('/api/debug', async (req, res) => {
             });
         }
 
-        const auth = new google.auth.JWT({
-            email: SERVICE_ACCOUNT_EMAIL,
-            key: SERVICE_ACCOUNT_PRIVATE_KEY,
-            scopes: ['https://www.googleapis.com/auth/calendar']
-        });
+        const auth = new google.auth.JWT(
+            SERVICE_ACCOUNT_EMAIL,
+            null,
+            SERVICE_ACCOUNT_PRIVATE_KEY,
+            ['https://www.googleapis.com/auth/calendar']
+        );
 
         console.log('✅ Auth configurada, testando autenticação...');
-        const client = await auth.getClient();
-        console.log('✅ Autenticação bem-sucedida');
-
+        
         const calendar = google.calendar({ version: 'v3', auth });
         
-        // Tenta listar calendários
+        // Testa listando calendários disponíveis
         console.log('📋 Listando calendários disponíveis...');
         const calendars = await calendar.calendarList.list();
         
-        // Tenta acessar o calendário específico
-        console.log('🔍 Verificando acesso ao calendário:', CALENDAR_ID);
-        const calendarInfo = await calendar.calendars.get({
-            calendarId: CALENDAR_ID
-        });
+        console.log('✅ Autenticação bem-sucedida! Calendários encontrados:', calendars.data.items.length);
 
         res.json({
             success: true,
             message: 'Conexão com Google Calendar OK',
             serviceAccount: SERVICE_ACCOUNT_EMAIL,
             calendarId: CALENDAR_ID,
-            calendarAccess: 'OK',
             availableCalendars: calendars.data.items.map(cal => ({
                 id: cal.id,
                 summary: cal.summary,
@@ -284,6 +263,70 @@ app.get('/api/debug', async (req, res) => {
     }
 });
 
+// Rota para testar criação de evento simples
+app.get('/api/test-event', async (req, res) => {
+    try {
+        console.log('🧪 Testando criação de evento...');
+        
+        const auth = new google.auth.JWT(
+            SERVICE_ACCOUNT_EMAIL,
+            null,
+            SERVICE_ACCOUNT_PRIVATE_KEY,
+            ['https://www.googleapis.com/auth/calendar']
+        );
+
+        const calendar = google.calendar({ version: 'v3', auth });
+        
+        const startDateTime = new Date();
+        startDateTime.setHours(startDateTime.getHours() + 1);
+        const endDateTime = new Date(startDateTime);
+        endDateTime.setHours(endDateTime.getHours() + 1);
+
+        const event = {
+            summary: 'TESTE - Nilton Barber',
+            description: 'Evento de teste do sistema de agendamento',
+            start: {
+                dateTime: startDateTime.toISOString(),
+                timeZone: 'Europe/Lisbon',
+            },
+            end: {
+                dateTime: endDateTime.toISOString(),
+                timeZone: 'Europe/Lisbon',
+            },
+        };
+
+        const response = await calendar.events.insert({
+            calendarId: CALENDAR_ID,
+            resource: event,
+            sendUpdates: 'none',
+        });
+
+        console.log('✅ Evento de teste criado:', response.data.id);
+
+        // Deleta o evento de teste
+        await calendar.events.delete({
+            calendarId: CALENDAR_ID,
+            eventId: response.data.id
+        });
+
+        console.log('🗑️ Evento de teste deletado');
+
+        res.json({
+            success: true,
+            message: 'Teste de evento realizado com sucesso',
+            eventId: response.data.id
+        });
+        
+    } catch (error) {
+        console.error('❌ Erro no teste de evento:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erro no teste de evento',
+            error: error.message
+        });
+    }
+});
+
 // Rota para servir o frontend
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
@@ -294,4 +337,5 @@ app.listen(PORT, () => {
     console.log(`🚀 Servidor Nilton Barber rodando na porta ${PORT}`);
     console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
     console.log(`🐛 Debug: http://localhost:${PORT}/api/debug`);
+    console.log(`🧪 Teste evento: http://localhost:${PORT}/api/test-event`);
 });
