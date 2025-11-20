@@ -7,11 +7,16 @@
       "use": "@vercel/node"
     },
     {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "."
-      }
+      "src": "**/*.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "**/*.css",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "**/*.js",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -21,14 +26,7 @@
       "methods": ["GET", "POST", "PUT", "DELETE"]
     },
     {
-      "src": "/(.*\\.(jpg|jpeg|png|gif|svg|webp|ico|mp4|webm|ogg|mp3|wav))",
-      "headers": {
-        "Cache-Control": "public, max-age=31536000, immutable"
-      },
-      "dest": "/$1"
-    },
-    {
-      "src": "/(.*\\.(css|js))",
+      "src": "/(.*\\.(jpg|jpeg|png|gif|svg|webp|mp4|webm|ogg))",
       "headers": {
         "Cache-Control": "public, max-age=31536000, immutable"
       },
@@ -36,7 +34,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "/$1"
     }
   ]
 }
