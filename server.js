@@ -4,13 +4,14 @@ const cors = require('cors');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
+// 🔐 Credenciais do Google Calendar (substitua com suas credenciais)
 // 🔐 CHAVES DIRETAMENTE NO CÓDIGO
 // Formato corrigido para usar template literal (crase) com quebras de linha literais
 const SERVICE_ACCOUNT_EMAIL = 'nilton-barber-agenda@nilton-barber-478712.iam.gserviceaccount.com';
@@ -64,17 +65,21 @@ async function createCalendarEvent(bookingData) {
         
         const calendar = google.calendar({ version: 'v3', auth });
 
-        const { service, price, name, email, phone, date, time } = bookingData;
+        const { services, totalPrice, name, email, phone, date, time } = bookingData;
 
         // 2. Converte data/hora
         const startDateTime = new Date(`${date}T${time}:00`);
         const endDateTime = new Date(startDateTime);
         endDateTime.setHours(endDateTime.getHours() + 1); // 1 hora de serviço
 
-        // 3. Objeto do Evento (CORREÇÃO APLICADA AQUI)
+        // 3. Monta descrição com todos os serviços
+        const servicesList = services.map(s => `${s.name} - €${s.price}`).join('\n');
+        const description = `Cliente: ${name}\nEmail: ${email}\nTelefone: ${phone}\n\nServiços:\n${servicesList}\n\nPreço Total: €${totalPrice}`;
+
+        // 4. Objeto do Evento
         const event = {
-            summary: `${service} - ${name}`,
-            description: `Cliente: ${name}\nEmail: ${email}\nTelefone: ${phone}\nPreço: €${price}`,
+            summary: `${services.map(s => s.name).join(', ')} - ${name}`,
+            description: description,
             location: 'NILTON BARBER - Lisboa',
             
             start: {
@@ -86,10 +91,6 @@ async function createCalendarEvent(bookingData) {
                 timeZone: TIME_ZONE,
             },
             
-            // ❌ CORREÇÃO: Removendo o campo 'attendees' para evitar o erro 403 (Domain-Wide Delegation).
-            // A conta de serviço não pode convidar emails externos.
-            // O evento será criado diretamente no CALENDAR_ID.
-            
             colorId: '4', 
             reminders: {
                 useDefault: false,
@@ -100,7 +101,7 @@ async function createCalendarEvent(bookingData) {
             },
         };
 
-        // 4. Inserir Evento
+        // 5. Inserir Evento
         const response = await calendar.events.insert({
             calendarId: CALENDAR_ID,
             resource: event,
@@ -129,16 +130,79 @@ async function createCalendarEvent(bookingData) {
 // ROTAS DA API
 // ===================================
 
+// Rota para verificar disponibilidade
+app.get('/api/availability', async (req, res) => {
+    console.log('🔍 Verificando disponibilidade para:', req.query.date);
+    
+    try {
+        const { date } = req.query;
+        
+        if (!date) {
+            return res.status(400).json({ 
+                success: false,
+                error: 'Data não fornecida' 
+            });
+        }
+        
+        const auth = new google.auth.JWT(
+            SERVICE_ACCOUNT_EMAIL,
+            null,
+            SERVICE_ACCOUNT_PRIVATE_KEY,
+            ['https://www.googleapis.com/auth/calendar.readonly']
+        );
+        
+        await auth.authorize();
+        const calendar = google.calendar({ version: 'v3', auth });
+        
+        const startOfDay = new Date(`${date}T00:00:00`);
+        const endOfDay = new Date(`${date}T23:59:59`);
+        
+        const response = await calendar.events.list({
+            calendarId: CALENDAR_ID,
+            timeMin: startOfDay.toISOString(),
+            timeMax: endOfDay.toISOString(),
+            singleEvents: true,
+            orderBy: 'startTime'
+        });
+        
+        const events = response.data.items || [];
+        const busyTimes = events.map(event => {
+            if (event.start.dateTime) {
+                const startTime = new Date(event.start.dateTime);
+                const hours = String(startTime.getHours()).padStart(2, '0');
+                const minutes = String(startTime.getMinutes()).padStart(2, '0');
+                return `${hours}:${minutes}`;
+            }
+            return null;
+        }).filter(Boolean);
+        
+        console.log('✅ Horários ocupados:', busyTimes);
+        
+        res.json({ 
+            success: true,
+            busyTimes 
+        });
+        
+    } catch (error) {
+        console.error('❌ Erro ao verificar disponibilidade:', error.message);
+        res.status(500).json({ 
+            success: false,
+            error: 'Erro ao verificar disponibilidade',
+            busyTimes: []
+        });
+    }
+});
+
 // Rota de Agendamento
 app.post('/api/bookings', async (req, res) => {
     console.log('📅 Recebendo agendamento:', JSON.stringify(req.body, null, 2));
     
     try {
-        const { service, price, name, email, phone, date, time } = req.body;
+        const { services, totalPrice, name, email, phone, date, time } = req.body;
         
         // 1. Validação dos dados
-        if (!service || !name || !email || !phone || !date || !time) {
-            console.error('❌ Dados incompletos:', { service, name, email, phone, date, time });
+        if (!services || services.length === 0 || !name || !email || !phone || !date || !time) {
+            console.error('❌ Dados incompletos:', { services, name, email, phone, date, time });
             return res.status(400).json({ 
                 success: false,
                 error: 'Dados incompletos',
@@ -150,8 +214,8 @@ app.post('/api/bookings', async (req, res) => {
         
         // 2. Cria evento no Google Calendar
         const eventId = await createCalendarEvent({
-            service,
-            price,
+            services,
+            totalPrice,
             name,
             email,
             phone,
@@ -219,10 +283,16 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Iniciar servidor
-app.listen(PORT, () => {
-    console.log(`🚀 Servidor Nilton Barber rodando na porta ${PORT}`);
-    console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-    console.log(`🐛 Debug: http://localhost:${PORT}/api/debug`);
-    console.log(`\n⚠️ IMPORTANTE: Certifique-se de compartilhar o calendário ${CALENDAR_ID} com ${SERVICE_ACCOUNT_EMAIL} com permissão de 'Fazer alterações em eventos'.`);
-});
+// Iniciar servidor localmente (desenvolvimento)
+// Na Vercel, o app é exportado como módulo serverless
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log(`🚀 Servidor Nilton Barber rodando na porta ${PORT}`);
+        console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+        console.log(`🐛 Debug: http://localhost:${PORT}/api/debug`);
+        console.log(`\n⚠️ IMPORTANTE: Certifique-se de compartilhar o calendário ${CALENDAR_ID} com ${SERVICE_ACCOUNT_EMAIL} com permissão de 'Fazer alterações em eventos'.`);
+    });
+}
+
+// Exportar para Vercel (serverless)
+module.exports = app;
