@@ -5,18 +5,6 @@
     {
       "src": "server.js",
       "use": "@vercel/node"
-    },
-    {
-      "src": "**/*.html",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "**/*.css",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "**/*.js",
-      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -26,7 +14,18 @@
       "methods": ["GET", "POST", "PUT", "DELETE"]
     },
     {
-      "src": "/(.*\\.(jpg|jpeg|png|gif|svg|webp|mp4|webm|ogg))",
+      "src": "/proxy-image",
+      "dest": "/server.js"
+    },
+    {
+      "src": "/(.*\\.(jpg|jpeg|png|gif|svg|webp|ico|mp4|webm|ogg))",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000, immutable"
+      },
+      "dest": "/$1"
+    },
+    {
+      "src": "/(.*\\.(css|js))",
       "headers": {
         "Cache-Control": "public, max-age=31536000, immutable"
       },
@@ -34,7 +33,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "/server.js"
     }
   ]
 }
