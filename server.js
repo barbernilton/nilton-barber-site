@@ -2,7 +2,7 @@ const express = require('express');
 const { google } = require('googleapis');
 const cors = require('cors');
 const path = require('path');
-const fetch = require('node-fetch'); // Adicione esta linha
+const fetch = require('node-fetch');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -12,9 +12,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// 🔐 Credenciais do Google Calendar
-const SERVICE_ACCOUNT_EMAIL = 'nilton-barber-agenda@nilton-barber-478712.iam.gserviceaccount.com';
-const SERVICE_ACCOUNT_PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
+/* ============================
+   🔐 Credenciais Google
+============================ */
+
+const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || 'nilton-barber-agenda@nilton-barber-478712.iam.gserviceaccount.com';
+const SERVICE_ACCOUNT_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY || `-----BEGIN PRIVATE KEY-----
 MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCrjBoE5Cf1tWZ5
 zpbOv5Hf6/HXIzFLRYZh3UL/Ra7/+plbmJGq9/cWU7hPEY7d/aRqGgfQ5GBagWOz
 hojr1yQDqlH9ODi//gcRSk639Tgml9T57MalT+7RE0HpN/nmysIwlYza1WVgyO9W
@@ -42,34 +45,30 @@ iSrBitV2un33XqFslLrpKUAGImN1KS84QSX+0pqCR/7H0VHvKG99mik2NWqdQA1s
 vsWZELN8fPG1JLczFqvqCD6gxuat8vbaJMQo2qgMGX2779Of6TWj+dGNSSWAj7V0
 6CyxPL+k9tvstisBfQWWtanp
 -----END PRIVATE KEY-----`;
+
 const CALENDAR_ID = 'u8887532977@gmail.com';
 const TIME_ZONE = 'Europe/Lisbon';
 
-// ===================================
-// NOVAS ROTAS PARA IMAGENS
-// ===================================
+/* ============================
+   🖼️ PROXY PARA IMAGENS GOOGLE DRIVE
+============================ */
 
-// Rota proxy para imagens do Google Drive
 app.get('/proxy-image', async (req, res) => {
     try {
         const imageId = req.query.id;
-        if (!imageId) {
-            return res.status(400).send('ID da imagem não fornecido');
-        }
+        if (!imageId) return res.status(400).send('ID da imagem não fornecido');
 
         const imageUrl = `https://drive.google.com/uc?export=view&id=${imageId}`;
         const response = await fetch(imageUrl);
-        
-        if (!response.ok) {
-            throw new Error(`Erro ao buscar imagem: ${response.status}`);
-        }
+
+        if (!response.ok) throw new Error(`Erro ao buscar imagem: ${response.status}`);
 
         const buffer = await response.buffer();
-        
-        // Define headers para cache e tipo de conteúdo
+
         res.set('Content-Type', response.headers.get('content-type') || 'image/jpeg');
         res.set('Cache-Control', 'public, max-age=31536000');
         res.set('Access-Control-Allow-Origin', '*');
+
         res.send(buffer);
 
     } catch (error) {
@@ -78,22 +77,20 @@ app.get('/proxy-image', async (req, res) => {
     }
 });
 
-// Rota para servir imagens locais (fallback)
+/* ============================
+   🗂️ IMAGENS LOCAIS (fallback)
+============================ */
+
 app.get('/assets/images/:imageName', (req, res) => {
-    const imageName = req.params.imageName;
-    const imagePath = path.join(__dirname, 'assets', 'images', imageName);
-    
-    res.sendFile(imagePath, (err) => {
-        if (err) {
-            console.log(`❌ Imagem não encontrada: ${imageName}`);
-            res.status(404).send('Imagem não encontrada');
-        }
+    const imagePath = path.join(__dirname, 'assets', 'images', req.params.imageName);
+    res.sendFile(imagePath, err => {
+        if (err) res.status(404).send('Imagem não encontrada');
     });
 });
 
-// ===================================
-// ROTAS EXISTENTES DA API
-// ===================================
+/* ============================
+   📅 FUNÇÃO PARA CRIAR EVENTO
+============================ */
 
 async function createCalendarEvent(bookingData) {
     try {
@@ -103,35 +100,28 @@ async function createCalendarEvent(bookingData) {
             SERVICE_ACCOUNT_PRIVATE_KEY,
             ['https://www.googleapis.com/auth/calendar']
         );
-        
+
         await auth.authorize();
-        
         const calendar = google.calendar({ version: 'v3', auth });
 
         const { services, totalPrice, name, email, phone, date, time } = bookingData;
 
-        const startDateTime = new Date(`${date}T${time}:00`);
-        const endDateTime = new Date(startDateTime);
-        endDateTime.setHours(endDateTime.getHours() + 1);
+        const start = new Date(`${date}T${time}:00`);
+        const end = new Date(start);
+        end.setHours(end.getHours() + 1);
 
-        const servicesList = services.map(s => `${s.name} - €${s.price}`).join('\n');
-        const description = `Cliente: ${name}\nEmail: ${email}\nTelefone: ${phone}\n\nServiços:\n${servicesList}\n\nPreço Total: €${totalPrice}`;
+        const serviceList = services.map(s => `${s.name} - €${s.price}`).join('\n');
 
         const event = {
             summary: `${services.map(s => s.name).join(', ')} - ${name}`,
-            description: description,
+            description:
+                `Cliente: ${name}\nEmail: ${email}\nTelefone: ${phone}\n\nServiços:\n${serviceList}\n\nPreço Total: €${totalPrice}`,
             location: 'NILTON BARBER - Portimão',
-            
-            start: {
-                dateTime: startDateTime.toISOString(),
-                timeZone: TIME_ZONE,
-            },
-            end: {
-                dateTime: endDateTime.toISOString(),
-                timeZone: TIME_ZONE,
-            },
-            
-            colorId: '4', 
+
+            start: { dateTime: start.toISOString(), timeZone: TIME_ZONE },
+            end: { dateTime: end.toISOString(), timeZone: TIME_ZONE },
+
+            colorId: '4',
             reminders: {
                 useDefault: false,
                 reminders: [
@@ -150,137 +140,87 @@ async function createCalendarEvent(bookingData) {
         return response.data.id;
 
     } catch (error) {
-        console.error('❌ Erro no agendamento: Falha ao criar evento:', error.message);
-        
-        if (error.code === 403) {
-             throw new Error('Falha de permissão no calendário. Confirme que a Service Account tem acesso de escrita.');
-        } else if (error.message.includes('Calendar usage limits exceeded')) {
-            throw new Error('Limite de uso do calendário excedido. Aguarde alguns minutos e tente novamente.');
-        }
-        
-        throw new Error('Falha desconhecida ao criar o agendamento.');
+        console.error('❌ Erro no agendamento:', error);
+        throw new Error('Falha ao criar o agendamento.');
     }
 }
 
-// Rota para verificar disponibilidade
+/* ============================
+   💬 API — DISPONIBILIDADE
+============================ */
+
 app.get('/api/availability', async (req, res) => {
-    console.log('🔍 Verificando disponibilidade para:', req.query.date);
-    
     try {
-        const { date } = req.query;
-        
-        if (!date) {
-            return res.status(400).json({ 
-                success: false,
-                error: 'Data não fornecida' 
-            });
-        }
-        
+        const date = req.query.date;
+        if (!date) return res.status(400).json({ success: false, error: 'Data não fornecida' });
+
         const auth = new google.auth.JWT(
             SERVICE_ACCOUNT_EMAIL,
             null,
             SERVICE_ACCOUNT_PRIVATE_KEY,
             ['https://www.googleapis.com/auth/calendar.readonly']
         );
-        
+
         await auth.authorize();
         const calendar = google.calendar({ version: 'v3', auth });
-        
+
         const startOfDay = new Date(`${date}T00:00:00`);
         const endOfDay = new Date(`${date}T23:59:59`);
-        
-        const response = await calendar.events.list({
+
+        const events = await calendar.events.list({
             calendarId: CALENDAR_ID,
             timeMin: startOfDay.toISOString(),
             timeMax: endOfDay.toISOString(),
             singleEvents: true,
             orderBy: 'startTime'
         });
-        
-        const events = response.data.items || [];
-        const busyTimes = events.map(event => {
-            if (event.start.dateTime) {
-                const startTime = new Date(event.start.dateTime);
-                const hours = String(startTime.getHours()).padStart(2, '0');
-                const minutes = String(startTime.getMinutes()).padStart(2, '0');
-                return `${hours}:${minutes}`;
-            }
-            return null;
+
+        const busyTimes = (events.data.items || []).map(e => {
+            if (!e.start.dateTime) return null;
+            const d = new Date(e.start.dateTime);
+            return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
         }).filter(Boolean);
-        
-        console.log('✅ Horários ocupados:', busyTimes);
-        
-        res.json({ 
-            success: true,
-            busyTimes 
-        });
-        
+
+        res.json({ success: true, busyTimes });
+
     } catch (error) {
-        console.error('❌ Erro ao verificar disponibilidade:', error.message);
-        res.status(500).json({ 
-            success: false,
-            error: 'Erro ao verificar disponibilidade',
-            busyTimes: []
-        });
+        res.status(500).json({ success: false, error: error.message, busyTimes: [] });
     }
 });
 
-// Rota de Agendamento
+/* ============================
+   📅 API — AGENDAMENTO
+============================ */
+
 app.post('/api/bookings', async (req, res) => {
-    console.log('📅 Recebendo agendamento:', JSON.stringify(req.body, null, 2));
-    
     try {
-        const { services, totalPrice, name, email, phone, date, time } = req.body;
-        
-        if (!services || services.length === 0 || !name || !email || !phone || !date || !time) {
-            console.error('❌ Dados incompletos:', { services, name, email, phone, date, time });
-            return res.status(400).json({ 
-                success: false,
-                error: 'Dados incompletos',
-                message: 'Todos os campos são obrigatórios. Por favor, preencha todos os dados.' 
-            });
-        }
+        const { services, name, email, phone, date, time } = req.body;
 
-        console.log('✅ Dados validados, criando evento no calendário...');
-        
-        const eventId = await createCalendarEvent({
-            services,
-            totalPrice,
-            name,
-            email,
-            phone,
-            date,
-            time
-        });
-        
-        console.log('✅ Evento criado com ID:', eventId);
-        
-        res.json({ 
-            success: true,
-            eventId,
-            message: 'Agendamento criado com sucesso! Você receberá uma confirmação por email.' 
-        });
-        
+        if (!services || !services.length || !name || !email || !phone || !date || !time)
+            return res.status(400).json({ success: false, error: 'Dados incompletos' });
+
+        const eventId = await createCalendarEvent(req.body);
+
+        res.json({ success: true, eventId });
+
     } catch (error) {
-        console.error('❌ Erro no agendamento:', error.message);
-        
-        res.status(500).json({ 
-            success: false,
-            error: 'Erro no agendamento',
-            message: error.message || 'Não foi possível criar o agendamento. Tente novamente.',
-            debug: error.message
-        });
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// Rota de Health Check
+/* ============================
+   🔧 HEALTH CHECK
+============================ */
+
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', uptime: process.uptime() });
 });
 
-// Rota de Debug
+/* ============================
+   🐛 DEBUG
+============================ */
+
 app.get('/api/debug', async (req, res) => {
-    console.log('🐛 Executando teste de autenticação...');
     try {
         const auth = new google.auth.JWT(
             SERVICE_ACCOUNT_EMAIL,
@@ -290,35 +230,34 @@ app.get('/api/debug', async (req, res) => {
         );
 
         await auth.authorize();
-        
-        res.json({ 
-            success: true, 
-            message: 'Autenticação da Service Account bem-sucedida! As chaves estão corretas.' 
-        });
+
+        res.json({ success: true, message: 'Autenticação OK' });
+
     } catch (error) {
-        console.error('❌ Erro no debug:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Falha na autenticação da Service Account.',
-            error: error.message 
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
-// Rota para servir o frontend
+/* ============================
+   🌐 FRONTEND (index.html)
+============================ */
+
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Iniciar servidor localmente
-if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => {
-        console.log(`🚀 Servidor Nilton Barber rodando na porta ${PORT}`);
-        console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-        console.log(`🐛 Debug: http://localhost:${PORT}/api/debug`);
-        console.log(`🖼️  Proxy de imagens: http://localhost:${PORT}/proxy-image?id=SEU_ID`);
-        console.log(`\n⚠️ IMPORTANTE: Certifique-se de compartilhar o calendário ${CALENDAR_ID} com ${SERVICE_ACCOUNT_EMAIL}`);
-    });
-}
+/* ============================
+   🚀 EXPORT PARA VERCEL
+============================ */
 
-module.exports = app;
+module.exports = (req, res) => app(req, res);
+
+/* ============================
+   🔧 RODAR LOCALMENTE
+============================ */
+
+if (!process.env.VERCEL) {
+    app.listen(PORT, () =>
+        console.log(`🚀 Servidor local rodando na porta ${PORT}`)
+    );
+}
