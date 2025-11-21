@@ -415,16 +415,19 @@ body {
     margin: 0 auto;
 }
 
-.video-wrapper {
+.video-wrapper.vertical-video {
     position: relative;
-    padding-bottom: 56.25%;
+    padding-bottom: 177.78%; /* 9:16 aspect ratio (9/16 = 0.5625, 1/0.5625 = 1.7778) */
+    height: 0;
+    max-width: 400px; /* Largura máxima para o vídeo vertical */
+    margin: 0 auto;
     border-radius: 20px;
     overflow: hidden;
     box-shadow: 0 20px 60px rgba(255, 215, 0, 0.2);
     border: 2px solid rgba(255, 215, 0, 0.2);
 }
 
-.video-wrapper iframe {
+.video-wrapper.vertical-video iframe {
     position: absolute;
     top: 0;
     left: 0;
@@ -434,19 +437,7 @@ body {
 }
 
 .video-placeholder {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    background: rgba(0, 0, 0, 0.7);
-    cursor: pointer;
-    transition: all 0.3s ease;
-    z-index: 3;
+    display: none !important;
 }
 
 .video-placeholder:hover {
