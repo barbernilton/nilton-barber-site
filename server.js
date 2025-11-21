@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 // 🔐 Credenciais do Google Calendar (substitua com suas credenciais)
 // 🔐 CHAVES DIRETAMENTE NO CÓDIGO
