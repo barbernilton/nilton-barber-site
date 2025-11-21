@@ -2,7 +2,7 @@ const express = require('express');
 const { google } = require('googleapis');
 const cors = require('cors');
 const path = require('path');
-const fetch = require('node-fetch');
+const fetch = require('node-fetch'); // Necessário para o proxy
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -14,6 +14,7 @@ app.use(express.static(__dirname));
 
 /* ============================
    🔐 Credenciais Google
+   (Mantidas as do seu código original)
 ============================ */
 
 const SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || 'nilton-barber-agenda@nilton-barber-478712.iam.gserviceaccount.com';
@@ -24,7 +25,7 @@ hojr1yQDqlH9ODi//gcRSk639Tgml9T57MalT+7RE0HpN/nmysIwlYza1WVgyO9W
 gqReDXWvEAOeEA5u9nXZpNRf1DjeDlylTVdVhEFGI+QH9FHbHuV0Bt8b+1FctsBQ
 Q8xGUxwegRiWKt2XjNQBMm8hWmPLB9RMcsk6Ptz0oHkgJH5kL+hHCEmHL+5AdFju
 KndV6Zek03yEBdOd1Zye1uOysBs1fuA1j5XbcbzZhwc5oDM5qe0sTOQBBjNhOqcC
-LwD8yzrFAgMBAAECggEAJEKtNkb2xlpVYp5fJKz8G+GO4Tt0XjWAMfv3vyce1kdF
+LwD8yzrFAgMBAAECggIAJEKtNkb2xlpVYp5fJKz8GGeGO4Tt0XjWAMfv3vyce1kdF
 dsXBVqrqzMqd/QKYWQaV5AKED+zSDBdo+GfR1c4INAkiovxpDHYYztgO2xYHjCrQ
 TxK0K3nBoGpqZm5ZUaYelW/rEc+FCgf3BSmArku4iiw/o3+/2UcZwoszg90DNzZn
 1XFWSWNHlPQayPTRjUjRVg8EtPWnaJS09BAoI4OrgndbKoscoU80NySGXs3aHiro
@@ -50,35 +51,46 @@ const CALENDAR_ID = 'u8887532977@gmail.com';
 const TIME_ZONE = 'Europe/Lisbon';
 
 /* ============================
-   🖼️ PROXY PARA IMAGENS GOOGLE DRIVE
+   🖼️ PROXY PARA IMAGENS GOOGLE DRIVE (CORRIGIDO)
 ============================ */
 
 app.get('/proxy-image', async (req, res) => {
     try {
         const imageId = req.query.id;
-        if (!imageId) return res.status(400).send('ID da imagem não fornecido');
+        if (!imageId) {
+            return res.status(400).send('ID da imagem não fornecido.');
+        }
 
-        const imageUrl = `https://drive.google.com/uc?export=view&id=${imageId}`;
-        const response = await fetch(imageUrl);
+        // 💡 CORREÇÃO: Usar 'export=download' para obter o arquivo binário direto.
+        const driveUrl = `https://drive.google.com/uc?export=download&id=${imageId}`;
+        const response = await fetch(driveUrl);
 
-        if (!response.ok) throw new Error(`Erro ao buscar imagem: ${response.status}`);
-
-        const buffer = await response.buffer();
-
-        res.set('Content-Type', response.headers.get('content-type') || 'image/jpeg');
-        res.set('Cache-Control', 'public, max-age=31536000');
-        res.set('Access-Control-Allow-Origin', '*');
-
-        res.send(buffer);
+        if (!response.ok) {
+            console.error(`Falha ao buscar imagem do Drive. Status: ${response.status}`);
+            // Tenta logar a mensagem de erro do Drive, se houver
+            const textResponse = await response.text();
+            console.error(`Corpo da Resposta do Drive: ${textResponse.substring(0, 200)}...`);
+            return res.status(500).send(`Erro ao buscar imagem: ${response.status} ${response.statusText}`);
+        }
+        
+        // 💡 OTIMIZAÇÃO: Transmitir o stream diretamente (mais eficiente em memória)
+        // Setar cabeçalhos para cache e Content-Type
+        res.setHeader('Content-Type', response.headers.get('content-type') || 'image/jpeg');
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); // Cache por 1 ano
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        
+        // Conecta o stream de resposta do fetch ao stream de resposta HTTP
+        response.body.pipe(res);
 
     } catch (error) {
-        console.error('❌ Erro no proxy de imagem:', error);
-        res.status(500).send('Erro ao carregar imagem');
+        console.error('❌ Erro no proxy de imagem:', error.message);
+        res.status(500).send('Erro interno do servidor ao carregar a imagem.');
     }
 });
 
 /* ============================
    🗂️ IMAGENS LOCAIS (fallback)
+   (Mantida a do seu código original)
 ============================ */
 
 app.get('/assets/images/:imageName', (req, res) => {
@@ -90,6 +102,7 @@ app.get('/assets/images/:imageName', (req, res) => {
 
 /* ============================
    📅 FUNÇÃO PARA CRIAR EVENTO
+   (Mantida a do seu código original)
 ============================ */
 
 async function createCalendarEvent(bookingData) {
@@ -147,6 +160,7 @@ async function createCalendarEvent(bookingData) {
 
 /* ============================
    💬 API — DISPONIBILIDADE
+   (Mantida a do seu código original)
 ============================ */
 
 app.get('/api/availability', async (req, res) => {
@@ -190,6 +204,7 @@ app.get('/api/availability', async (req, res) => {
 
 /* ============================
    📅 API — AGENDAMENTO
+   (Mantida a do seu código original)
 ============================ */
 
 app.post('/api/bookings', async (req, res) => {
@@ -210,6 +225,7 @@ app.post('/api/bookings', async (req, res) => {
 
 /* ============================
    🔧 HEALTH CHECK
+   (Mantida a do seu código original)
 ============================ */
 
 app.get('/api/health', (req, res) => {
@@ -218,6 +234,7 @@ app.get('/api/health', (req, res) => {
 
 /* ============================
    🐛 DEBUG
+   (Mantida a do seu código original)
 ============================ */
 
 app.get('/api/debug', async (req, res) => {
@@ -240,6 +257,7 @@ app.get('/api/debug', async (req, res) => {
 
 /* ============================
    🌐 FRONTEND (index.html)
+   (Mantida a do seu código original)
 ============================ */
 
 app.get('*', (req, res) => {
@@ -248,12 +266,14 @@ app.get('*', (req, res) => {
 
 /* ============================
    🚀 EXPORT PARA VERCEL
+   (Mantida a do seu código original)
 ============================ */
 
 module.exports = (req, res) => app(req, res);
 
 /* ============================
    🔧 RODAR LOCALMENTE
+   (Mantida a do seu código original)
 ============================ */
 
 if (!process.env.VERCEL) {
