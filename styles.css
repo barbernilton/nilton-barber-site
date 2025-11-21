@@ -417,9 +417,9 @@ body {
 
 .video-wrapper.vertical-video {
     position: relative;
-    padding-bottom: 177.78%; /* 9:16 aspect ratio */
-    height: 0;
+    width: 100%;
     max-width: 400px;
+    aspect-ratio: 9/16; /* Proporção 9:16 direto */
     margin: 0 auto;
     border-radius: 20px;
     overflow: hidden;
@@ -437,6 +437,19 @@ body {
     border: none;
 }
 
+/* Responsivo */
+@media (max-width: 768px) {
+    .video-wrapper.vertical-video {
+        max-width: 320px;
+    }
+}
+
+@media (max-width: 480px) {
+    .video-wrapper.vertical-video {
+        max-width: 280px;
+    }
+}
+
 .video-instructions {
     text-align: center;
     margin-top: 20px;
@@ -451,41 +464,6 @@ body {
     background: rgba(255, 215, 0, 0.1);
     border-radius: 10px;
     display: inline-block;
-}
-
-/* Loading state para o vídeo */
-.video-loading {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: var(--secondary-gold);
-    font-size: 18px;
-}
-
-.video-placeholder {
-    display: none !important;
-}
-
-.video-placeholder:hover {
-    background: rgba(0, 0, 0, 0.5);
-}
-
-.play-button {
-    width: 100px;
-    height: 100px;
-    margin-bottom: 20px;
-    transition: transform 0.3s ease;
-}
-
-.video-placeholder:hover .play-button {
-    transform: scale(1.1);
-}
-
-.video-placeholder p {
-    color: var(--secondary-gold);
-    font-size: 18px;
-    letter-spacing: 1px;
 }
 
 
