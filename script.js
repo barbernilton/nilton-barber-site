@@ -295,20 +295,7 @@ function initScrollAnimations() {
     });
 }
 
-function initVideo() {
-    const videoPlaceholder = document.querySelector('.video-placeholder');
-    if (videoPlaceholder) {
-        videoPlaceholder.addEventListener('click', function() {
-            const video = document.getElementById('ambiente-video');
-            if (video) {
-                this.style.display = 'none';
-                video.play().catch(error => {
-                    console.error('Erro ao reproduzir vídeo:', error);
-                });
-            }
-        });
-    }
-}
+
 
 function initSmoothScrolling() {
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
