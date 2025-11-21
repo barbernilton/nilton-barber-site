@@ -80,14 +80,22 @@ body {
     align-items: center;
 }
 
-.nav-logo img {
-    height: 60px;
+.nav-logo iframe,
+.hero-logo-large iframe,
+.footer-logo {
+    border: none;
     filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.3));
     transition: transform 0.3s ease;
 }
 
-.nav-logo img:hover {
+.nav-logo iframe:hover,
+.hero-logo-large iframe:hover {
     transform: scale(1.05);
+}
+
+.nav-logo iframe {
+    width: 60px !important;
+    height: 60px !important;
 }
 
 .nav-menu {
@@ -197,10 +205,13 @@ body {
     max-width: 1000px;
 }
 
-.hero-logo-large {
+.hero-logo-large iframe {
+    width: 300px !important;
+    height: 300px !important;
     margin-bottom: 30px;
     animation: logoFloat 6s ease-in-out infinite;
 }
+
 
 .hero-logo-large img {
     width: 300px;
@@ -208,8 +219,8 @@ body {
 }
 
 @keyframes logoFloat {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
+    0%, 100% { transform: translateY(0px) scale(1); }
+    50% { transform: translateY(-10px) scale(1.02); }
 }
 
 .hero-title {
@@ -413,13 +424,13 @@ body {
     border: 2px solid rgba(255, 215, 0, 0.2);
 }
 
-.video-wrapper video {
+.video-wrapper iframe {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    border: none;
 }
 
 .video-placeholder {
@@ -435,6 +446,7 @@ body {
     background: rgba(0, 0, 0, 0.7);
     cursor: pointer;
     transition: all 0.3s ease;
+    z-index: 3;
 }
 
 .video-placeholder:hover {
@@ -1174,9 +1186,9 @@ body {
 }
 
 .footer-logo {
-    height: 80px;
+    width: 80px !important;
+    height: 80px !important;
     margin-bottom: 20px;
-    filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.3));
 }
 
 .footer-tagline {
