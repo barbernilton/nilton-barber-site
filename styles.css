@@ -80,20 +80,19 @@ body {
     align-items: center;
 }
 
-.nav-logo iframe,
-.hero-logo-large iframe,
+.nav-logo img,
+.hero-logo-large img,
 .footer-logo {
-    border: none;
-    filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.3));
-    transition: transform 0.3s ease;
+    border: 2px solid red !important; /* Para ver se o elemento existe */
+    background-color: rgba(255, 0, 0, 0.1) !important; /* Fundo para ver área */
 }
 
-.nav-logo iframe:hover,
-.hero-logo-large iframe:hover {
-    transform: scale(1.05);
+.hero-logo-large img {
+    width: 300px !important;
+    height: 300px !important;
 }
 
-.nav-logo iframe {
+.nav-logo img {
     width: 60px !important;
     height: 60px !important;
 }
@@ -1184,9 +1183,7 @@ body {
 .footer-logo {
     width: 80px !important;
     height: 80px !important;
-    margin-bottom: 20px;
 }
-
 .footer-tagline {
     font-family: var(--font-accent);
     color: var(--secondary-gold);
