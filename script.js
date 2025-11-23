@@ -262,6 +262,56 @@ function initGallery() {
     updateCarousel();
 }
 
+function initVideo() {
+    const video = document.getElementById('ambiente-video');
+    const playBtn = document.getElementById('video-play-btn');
+    const videoWrapper = document.querySelector('.video-wrapper.vertical-video');
+    
+    if (!video || !playBtn || !videoWrapper) return;
+    
+    // Play no clique do botão
+    playBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        video.play();
+        videoWrapper.classList.add('playing');
+    });
+    
+    // Play no clique do container do vídeo
+    videoWrapper.addEventListener('click', function() {
+        if (video.paused) {
+            video.play();
+            videoWrapper.classList.add('playing');
+        } else {
+            video.pause();
+            videoWrapper.classList.remove('playing');
+        }
+    });
+    
+    // Mostrar botão quando vídeo pausar
+    video.addEventListener('pause', function() {
+        videoWrapper.classList.remove('playing');
+    });
+    
+    // Mostrar botão quando vídeo terminar
+    video.addEventListener('ended', function() {
+        videoWrapper.classList.remove('playing');
+        video.currentTime = 0; // Voltar ao início
+    });
+    
+    // Prevenir comportamento padrão
+    video.addEventListener('webkitbeginfullscreen', function() {
+        video.controls = false;
+    });
+    
+    video.addEventListener('webkitendfullscreen', function() {
+        video.controls = true;
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initVideo();
+});
+
 function initServices() {
     const serviceBtns = document.querySelectorAll('.service-btn');
     
