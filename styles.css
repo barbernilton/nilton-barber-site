@@ -419,6 +419,7 @@ body {
     box-shadow: 0 20px 60px rgba(255, 215, 0, 0.2);
     border: 2px solid rgba(255, 215, 0, 0.2);
     background: #000;
+    cursor: pointer;
 }
 
 .video-wrapper.vertical-video video {
@@ -428,6 +429,8 @@ body {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 20px;
+    transition: all 0.3s ease;
 }
 
 .video-play-btn {
@@ -461,6 +464,15 @@ body {
     fill: var(--gold-bright);
 }
 
+.video-wrapper.playing .video-play-btn {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.video-wrapper.playing {
+    border-color: var(--secondary-gold);
+    box-shadow: 0 20px 60px rgba(255, 215, 0, 0.4);
+}
 
 /* Responsivo */
 @media (max-width: 768px) {
