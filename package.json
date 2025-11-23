@@ -1,24 +1,12 @@
 {
   "name": "nilton-barber",
   "version": "1.0.0",
-  "description": "Sistema de agendamento para barbearia premium",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node server.js"
   },
-  "keywords": [
-    "barber",
-    "agendamento",
-    "barbearia",
-    "portimão",
-    "portugal"
-  ],
-  "author": "Nilton Barber",
-  "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
     "express": "^4.18.2",
     "googleapis": "^126.0.1"
   },
