@@ -308,9 +308,7 @@ function initVideo() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    initVideo();
-});
+
 
 function initServices() {
     const serviceBtns = document.querySelectorAll('.service-btn');
