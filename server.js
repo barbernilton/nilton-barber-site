@@ -12,9 +12,7 @@ app.use(express.json());
 app.use(express.static(__dirname));
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
-// 🔐 Credenciais do Google Calendar (substitua com suas credenciais)
-// 🔐 CHAVES DIRETAMENTE NO CÓDIGO
-// Formato corrigido para usar template literal (crase) com quebras de linha literais
+// 🔐 Credenciais do Google Calendar
 const SERVICE_ACCOUNT_EMAIL = 'nilton-barber-agenda@nilton-barber-478712.iam.gserviceaccount.com';
 const SERVICE_ACCOUNT_PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
 MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCrjBoE5Cf1tWZ5
@@ -44,17 +42,14 @@ iSrBitV2un33XqFslLrpKUAGImN1KS84QSX+0pqCR/7H0VHvKG99mik2NWqdQA1s
 vsWZELN8fPG1JLczFqvqCD6gxuat8vbaJMQo2qgMGX2779Of6TWj+dGNSSWAj7V0
 6CyxPL+k9tvstisBfQWWtanp
 -----END PRIVATE KEY-----`;
-const CALENDAR_ID = 'u8887532977@gmail.com'; // O seu calendário
-const TIME_ZONE = 'Europe/Lisbon'; // Fuso horário de Portugal
+const CALENDAR_ID = 'u8887532977@gmail.com';
+const TIME_ZONE = 'Europe/Lisbon';
 
 /**
  * Cria um evento no Google Calendar.
- * @param {object} bookingData - Dados do agendamento.
- * @returns {string} O ID do evento criado.
  */
 async function createCalendarEvent(bookingData) {
     try {
-        // 1. Autenticação JWT
         const auth = new google.auth.JWT(
             SERVICE_ACCOUNT_EMAIL,
             null,
@@ -63,26 +58,21 @@ async function createCalendarEvent(bookingData) {
         );
         
         await auth.authorize();
-        
         const calendar = google.calendar({ version: 'v3', auth });
 
         const { services, totalPrice, name, email, phone, date, time } = bookingData;
 
-        // 2. Converte data/hora
         const startDateTime = new Date(`${date}T${time}:00`);
         const endDateTime = new Date(startDateTime);
-        endDateTime.setHours(endDateTime.getHours() + 1); // 1 hora de serviço
+        endDateTime.setHours(endDateTime.getHours() + 1);
 
-        // 3. Monta descrição com todos os serviços
         const servicesList = services.map(s => `${s.name} - €${s.price}`).join('\n');
         const description = `Cliente: ${name}\nEmail: ${email}\nTelefone: ${phone}\n\nServiços:\n${servicesList}\n\nPreço Total: €${totalPrice}`;
 
-        // 4. Objeto do Evento
         const event = {
             summary: `${services.map(s => s.name).join(', ')} - ${name}`,
             description: description,
             location: 'NILTON BARBER - Portimão, Portugal',
-            
             start: {
                 dateTime: startDateTime.toISOString(),
                 timeZone: TIME_ZONE,
@@ -91,22 +81,20 @@ async function createCalendarEvent(bookingData) {
                 dateTime: endDateTime.toISOString(),
                 timeZone: TIME_ZONE,
             },
-            
-            colorId: '4', 
+            colorId: '4',
             reminders: {
                 useDefault: false,
                 reminders: [
-                    { method: 'email', minutes: 24 * 60 }, // 1 dia antes
+                    { method: 'email', minutes: 24 * 60 },
                     { method: 'popup', minutes: 10 },
                 ],
             },
         };
 
-        // 5. Inserir Evento
         const response = await calendar.events.insert({
             calendarId: CALENDAR_ID,
             resource: event,
-            sendUpdates: 'none', // Não envia emails de convite
+            sendUpdates: 'none',
         });
 
         return response.data.id;
@@ -114,15 +102,12 @@ async function createCalendarEvent(bookingData) {
     } catch (error) {
         console.error('❌ Erro no agendamento: Falha ao criar evento:', error.message);
         
-        // CORREÇÃO: Tratamento de erro mais genérico. 
-        // Lança o erro original ou uma mensagem de falha.
         if (error.code === 403) {
              throw new Error('Falha de permissão no calendário. Confirme que a Service Account tem acesso de escrita.');
         } else if (error.message.includes('Calendar usage limits exceeded')) {
             throw new Error('Limite de uso do calendário excedido. Aguarde alguns minutos e tente novamente.');
         }
         
-        // Lança o erro padrão se não for um erro conhecido
         throw new Error('Falha desconhecida ao criar o agendamento.');
     }
 }
@@ -131,7 +116,43 @@ async function createCalendarEvent(bookingData) {
 // ROTAS DA API
 // ===================================
 
-// Rota para verificar disponibilidade
+// Health Check
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'ok', 
+        uptime: process.uptime(),
+        message: 'NILTON BARBER API está funcionando!'
+    });
+});
+
+// Debug
+app.get('/api/debug', async (req, res) => {
+    console.log('🐛 Executando teste de autenticação...');
+    try {
+        const auth = new google.auth.JWT(
+            SERVICE_ACCOUNT_EMAIL,
+            null,
+            SERVICE_ACCOUNT_PRIVATE_KEY,
+            ['https://www.googleapis.com/auth/calendar.readonly']
+        );
+
+        await auth.authorize();
+        
+        res.json({ 
+            success: true, 
+            message: 'Autenticação da Service Account bem-sucedida!' 
+        });
+    } catch (error) {
+        console.error('❌ Erro no debug:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Falha na autenticação da Service Account.',
+            error: error.message 
+        });
+    }
+});
+
+// Disponibilidade
 app.get('/api/availability', async (req, res) => {
     console.log('🔍 Verificando disponibilidade para:', req.query.date);
     
@@ -194,26 +215,24 @@ app.get('/api/availability', async (req, res) => {
     }
 });
 
-// Rota de Agendamento
+// Agendamento
 app.post('/api/bookings', async (req, res) => {
     console.log('📅 Recebendo agendamento:', JSON.stringify(req.body, null, 2));
     
     try {
         const { services, totalPrice, name, email, phone, date, time } = req.body;
         
-        // 1. Validação dos dados
         if (!services || services.length === 0 || !name || !email || !phone || !date || !time) {
             console.error('❌ Dados incompletos:', { services, name, email, phone, date, time });
             return res.status(400).json({ 
                 success: false,
                 error: 'Dados incompletos',
-                message: 'Todos os campos são obrigatórios. Por favor, preencha todos os dados.' 
+                message: 'Todos os campos são obrigatórios.' 
             });
         }
 
         console.log('✅ Dados validados, criando evento no calendário...');
         
-        // 2. Cria evento no Google Calendar
         const eventId = await createCalendarEvent({
             services,
             totalPrice,
@@ -226,7 +245,6 @@ app.post('/api/bookings', async (req, res) => {
         
         console.log('✅ Evento criado com ID:', eventId);
         
-        // 3. Resposta de sucesso (200 OK)
         res.json({ 
             success: true,
             eventId,
@@ -234,63 +252,31 @@ app.post('/api/bookings', async (req, res) => {
         });
         
     } catch (error) {
-        // 4. Tratamento de erro (qualquer erro em createCalendarEvent cai aqui)
         console.error('❌ Erro no agendamento:', error.message);
         
         res.status(500).json({ 
             success: false,
             error: 'Erro no agendamento',
-            message: error.message || 'Não foi possível criar o agendamento. Tente novamente.',
-            debug: error.message
+            message: error.message || 'Não foi possível criar o agendamento. Tente novamente.'
         });
     }
 });
 
-// Rota de Health Check (Verifica se o servidor está ativo)
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', uptime: process.uptime() });
+// ✅ ROTA PRINCIPAL PARA O FRONTEND
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Rota de Debug (Testa apenas a autenticação da Service Account)
-app.get('/api/debug', async (req, res) => {
-    console.log('🐛 Executando teste de autenticação...');
-    try {
-        const auth = new google.auth.JWT(
-            SERVICE_ACCOUNT_EMAIL,
-            null,
-            SERVICE_ACCOUNT_PRIVATE_KEY,
-            ['https://www.googleapis.com/auth/calendar.readonly']
-        );
-
-        await auth.authorize();
-        
-        res.json({ 
-            success: true, 
-            message: 'Autenticação da Service Account bem-sucedida! As chaves estão corretas.' 
-        });
-    } catch (error) {
-        console.error('❌ Erro no debug:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Falha na autenticação da Service Account.',
-            error: error.message 
-        });
-    }
-});
-
-
-// Rota para servir o frontend
+// ✅ ROTA CATCH-ALL PARA SPA (Single Page Application)
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Iniciar servidor localmente (desenvolvimento)
-// Na Vercel, o app é exportado como módulo serverless
-if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => {
-        console.log(`🚀 Servidor Nilton Barber rodando na porta ${PORT}`);
-        console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-        console.log(`🐛 Debug: http://localhost:${PORT}/api/debug`);
-        console.log(`\n⚠️ IMPORTANTE: Certifique-se de compartilhar o calendário ${CALENDAR_ID} com ${SERVICE_ACCOUNT_EMAIL} com permissão de 'Fazer alterações em eventos'.`);
-    });
-}
+// 🚀 INICIAR SERVIDOR PARA RAILWAY
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Servidor Nilton Barber rodando na porta ${PORT}`);
+    console.log(`✅ Health Check: http://localhost:${PORT}/api/health`);
+    console.log(`🌐 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`📅 Calendário: ${CALENDAR_ID}`);
+});
