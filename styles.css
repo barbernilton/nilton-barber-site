@@ -83,7 +83,6 @@ body {
 .nav-logo img,
 .hero-logo-large img,
 .footer-logo {
-    border: 2px solid red !important; /* Para ver se o elemento existe */
     background-color: rgba(255, 0, 0, 0.1) !important; /* Fundo para ver área */
 }
 
