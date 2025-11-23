@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 
 const app = express();
+// ✅ CORREÇÃO: Declare PORT apenas uma vez
 const PORT = process.env.PORT || 10000;
 
 // Middleware
@@ -274,7 +275,7 @@ app.get('*', (req, res) => {
 });
 
 // 🚀 INICIAR SERVIDOR PARA RENDER
-const PORT = process.env.PORT || 10000;
+// ✅ CORREÇÃO: PORT já foi declarado no início, só usar aqui
 app.listen(PORT, () => {
     console.log(`🚀 Servidor Nilton Barber rodando na porta ${PORT}`);
     console.log(`✅ Health Check: http://localhost:${PORT}/api/health`);
