@@ -430,6 +430,38 @@ body {
     object-fit: cover;
 }
 
+.video-play-btn {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px;
+    height: 80px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.3s ease;
+    opacity: 1;
+}
+
+.video-play-btn svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.5));
+    transition: all 0.3s ease;
+}
+
+.video-play-btn:hover svg {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.8));
+}
+
+.video-play-btn:hover circle {
+    fill: var(--gold-bright);
+}
+
+
 /* Responsivo */
 @media (max-width: 768px) {
     .video-wrapper.vertical-video {
