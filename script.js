@@ -267,23 +267,47 @@ function initVideo() {
     const playBtn = document.getElementById('video-play-btn');
     const videoWrapper = document.querySelector('.video-wrapper.vertical-video');
     
-    if (!video || !playBtn || !videoWrapper) return;
+    if (!video || !playBtn || !videoWrapper) {
+        console.log('❌ Elementos do vídeo não encontrados');
+        return;
+    }
+
+    console.log('✅ Vídeo encontrado:', video);
+    
+    // Verificar se o vídeo está carregado
+    video.addEventListener('loadeddata', function() {
+        console.log('✅ Vídeo carregado com sucesso');
+    });
+    
+    video.addEventListener('error', function(e) {
+        console.error('❌ Erro no vídeo:', e);
+        console.log('🔍 Verifique se o arquivo existe em: assets/videos/ambiente.mp4');
+    });
     
     // Play no clique do botão
     playBtn.addEventListener('click', function(e) {
         e.stopPropagation();
-        video.play();
-        videoWrapper.classList.add('playing');
+        console.log('🎬 Tentando reproduzir vídeo...');
+        
+        video.play().then(() => {
+            console.log('✅ Vídeo iniciado com sucesso');
+            videoWrapper.classList.add('playing');
+        }).catch(error => {
+            console.error('❌ Erro ao reproduzir:', error);
+        });
     });
     
     // Play no clique do container do vídeo
-    videoWrapper.addEventListener('click', function() {
-        if (video.paused) {
-            video.play();
-            videoWrapper.classList.add('playing');
-        } else {
-            video.pause();
-            videoWrapper.classList.remove('playing');
+    videoWrapper.addEventListener('click', function(e) {
+        if (e.target === videoWrapper || e.target === video) {
+            if (video.paused) {
+                video.play().then(() => {
+                    videoWrapper.classList.add('playing');
+                });
+            } else {
+                video.pause();
+                videoWrapper.classList.remove('playing');
+            }
         }
     });
     
@@ -298,16 +322,10 @@ function initVideo() {
         video.currentTime = 0; // Voltar ao início
     });
     
-    // Prevenir comportamento padrão
-    video.addEventListener('webkitbeginfullscreen', function() {
-        video.controls = false;
-    });
-    
-    video.addEventListener('webkitendfullscreen', function() {
-        video.controls = true;
-    });
+    // Log para debug
+    video.addEventListener('loadstart', () => console.log('🔄 Carregando vídeo...'));
+    video.addEventListener('canplay', () => console.log('🎯 Vídeo pronto para reprodução'));
 }
-
 
 
 function initServices() {
