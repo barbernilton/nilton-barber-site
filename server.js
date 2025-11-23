@@ -4,7 +4,7 @@ const cors = require('cors');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 
 // Middleware
 app.use(cors());
@@ -121,7 +121,8 @@ app.get('/api/health', (req, res) => {
     res.json({ 
         status: 'ok', 
         uptime: process.uptime(),
-        message: 'NILTON BARBER API está funcionando!'
+        message: 'NILTON BARBER API está funcionando!',
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -272,11 +273,12 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// 🚀 INICIAR SERVIDOR PARA RAILWAY
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0', () => {
+// 🚀 INICIAR SERVIDOR PARA RENDER
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
     console.log(`🚀 Servidor Nilton Barber rodando na porta ${PORT}`);
     console.log(`✅ Health Check: http://localhost:${PORT}/api/health`);
     console.log(`🌐 Ambiente: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📅 Calendário: ${CALENDAR_ID}`);
+    console.log(`✨ Pronto para receber agendamentos!`);
 });
